@@ -1,120 +1,112 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
+import { useMemo, useState } from 'react'
 import './App.css'
 
+const CATEGORIES = ['Toate', 'Acțiune', 'Aventură', 'Puzzle', 'Sport', 'Strategie', 'Arcade']
+
+// Carduri de exemplu, doar pentru aspectul paginii. Le poți înlocui când adaugi conținut real.
+const PLACEHOLDERS = [
+  { id: 1, title: 'Titlu joc', category: 'Acțiune', emoji: '🚀', description: 'Descriere scurtă a jocului.' },
+  { id: 2, title: 'Titlu joc', category: 'Aventură', emoji: '🗡️', description: 'Descriere scurtă a jocului.' },
+  { id: 3, title: 'Titlu joc', category: 'Puzzle', emoji: '🧩', description: 'Descriere scurtă a jocului.' },
+  { id: 4, title: 'Titlu joc', category: 'Sport', emoji: '⚽', description: 'Descriere scurtă a jocului.' },
+  { id: 5, title: 'Titlu joc', category: 'Strategie', emoji: '🏰', description: 'Descriere scurtă a jocului.' },
+  { id: 6, title: 'Titlu joc', category: 'Arcade', emoji: '🐍', description: 'Descriere scurtă a jocului.' },
+  { id: 7, title: 'Titlu joc', category: 'Acțiune', emoji: '🥷', description: 'Descriere scurtă a jocului.' },
+  { id: 8, title: 'Titlu joc', category: 'Aventură', emoji: '🏝️', description: 'Descriere scurtă a jocului.' },
+]
+
+function Card({ item }) {
+  return (
+    <article className="card">
+      <div className="thumb">
+        <span aria-hidden="true">{item.emoji}</span>
+      </div>
+      <div className="card-body">
+        <h3>{item.title}</h3>
+        <p>{item.description}</p>
+        <span className="tag">{item.category}</span>
+      </div>
+    </article>
+  )
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState('Toate')
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return PLACEHOLDERS.filter(
+      (g) =>
+        (category === 'Toate' || g.category === category) &&
+        (!q || g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q)),
+    )
+  }, [query, category])
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+      <header className="header">
+        <div className="container header-inner">
+          <a className="logo" href="/">
+            <span className="logo-mark" aria-hidden="true">🕹️</span>
+            Flashback
+          </a>
+          <input
+            className="search"
+            type="search"
+            placeholder="Caută un joc..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Caută un joc"
+          />
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      <main>
+        <section className="hero container">
+          <h1>
+            Jocurile Flash <span>nu au murit.</span>
+          </h1>
+          <p>Joacă clasicele tale preferate direct în browser. Fără instalări, fără cont. Apasă START.</p>
+          <div className="hero-actions">
+            <a className="btn" href="#jocuri">
+              ▶ Start
+            </a>
+          </div>
+        </section>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
+        <section className="container" id="jocuri">
+          <div className="section-head">
+            <h2>Toate jocurile</h2>
+            <div className="chips" role="tablist" aria-label="Categorii">
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="tab"
+                  aria-selected={category === c}
+                  className={`chip ${category === c ? 'active' : ''}`}
+                  onClick={() => setCategory(c)}
                 >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+          <div className="grid">
+            {filtered.length ? (
+              filtered.map((g) => <Card key={g.id} item={g} />)
+            ) : (
+              <p className="empty">Nimic găsit. Încearcă altă căutare sau altă categorie.</p>
+            )}
+          </div>
+        </section>
+      </main>
+
+      <footer className="footer">
+        <div className="container">Flashback · doar frontend</div>
+      </footer>
     </>
   )
 }
