@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import './App.css'
+import { auth, db } from "./firebase/firebase";
 
 const CATEGORIES = ['Toate', 'Acțiune', 'Aventură', 'Puzzle', 'Sport', 'Strategie', 'Arcade']
 
@@ -105,7 +106,13 @@ function App() {
       </main>
 
       <footer className="footer">
-        <div className="container">Flashback · doar frontend</div>
+        <div className="container">Flashback</div>
+        <div>
+            <p>Temporary</p>
+            <p>Firebase initialized successfully!</p>
+            <p>Authentication: {auth ? "Connected" : "Error"}</p>
+            <p>Firestore: {db ? "Connected" : "Error"}</p>
+        </div>
       </footer>
     </>
   )
