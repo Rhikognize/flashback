@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react'
+import AuthModal from './AuthModal'
+import { getSession, logout } from './auth'
 import './App.css'
 
 const CATEGORIES = ['Toate', 'Acțiune', 'Aventură', 'Puzzle', 'Sport', 'Strategie', 'Arcade']
@@ -33,6 +35,13 @@ function Card({ item }) {
 function App() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Toate')
+  const [user, setUser] = useState(getSession)
+  const [authMode, setAuthMode] = useState(null) // null | 'login' | 'register'
+
+  const handleLogout = () => {
+    logout()
+    setUser(null)
+  }
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -59,6 +68,25 @@ function App() {
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Caută un joc"
           />
+          <div className="header-actions">
+            {user ? (
+              <>
+                <span className="user-chip">👤 {user.username}</span>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
+                  Ieși
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
+                  Intră
+                </button>
+                <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
+                  Cont nou
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -67,7 +95,11 @@ function App() {
           <h1>
             Jocurile Flash <span>nu au murit.</span>
           </h1>
-          <p>Joacă clasicele tale preferate direct în browser. Fără instalări, fără cont. Apasă START.</p>
+          <p>
+            {user
+              ? `Bine ai revenit, ${user.username}! Apasă START.`
+              : 'Joacă clasicele tale preferate direct în browser. Apasă START.'}
+          </p>
           <div className="hero-actions">
             <a className="btn" href="#jocuri">
               ▶ Start
@@ -105,8 +137,19 @@ function App() {
       </main>
 
       <footer className="footer">
-        <div className="container">Flashback · doar frontend</div>
+        <div className="container">Flashback </div>
       </footer>
+
+      {authMode && (
+        <AuthModal
+          initialMode={authMode}
+          onClose={() => setAuthMode(null)}
+          onSuccess={(u) => {
+            setUser(u)
+            setAuthMode(null)
+          }}
+        />
+      )}
     </>
   )
 }
