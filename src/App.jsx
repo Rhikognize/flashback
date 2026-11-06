@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import AuthModal from './AuthModal'
 import { getSession, logout } from './auth'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
 
 const CATEGORIES = ['Toate', 'Acțiune', 'Aventură', 'Puzzle', 'Sport', 'Strategie', 'Arcade']
+const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
 
 // Carduri de exemplu, doar pentru aspectul paginii. Le poți înlocui când adaugi conținut real.
 const PLACEHOLDERS = [
@@ -52,6 +53,28 @@ function App() {
         (!q || g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q)),
     )
   }, [query, category])
+
+  const [workerStatus, setWorkerStatus] = useState('Checking...')
+
+  useEffect(() => {
+    async function checkWorker() {
+      try {
+        const response = await fetch(WORKER_URL)
+
+        if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status}`)
+        }
+
+        const result = await response.text()
+        setWorkerStatus(result)
+      } catch (error) {
+        console.error('Worker connection error:', error)
+        setWorkerStatus('Connection failed')
+      }
+    }
+
+    checkWorker()
+  }, [])
 
   return (
     <>
@@ -141,10 +164,11 @@ function App() {
 
         <div className="container">Flashback</div>
         <div>
-            <p>Temporary</p>
-            <p>Firebase initialized successfully!</p>
-            <p>Authentication: {auth ? "Connected" : "Error"}</p>
-            <p>Firestore: {db ? "Connected" : "Error"}</p>
+          <p>Temporary</p>
+          <p>Firebase initialized successfully!</p>
+          <p>Authentication: {auth ? "Connected" : "Error"}</p>
+          <p>Firestore: {db ? "Connected" : "Error"}</p>
+          <p>Cloudflare Worker: {workerStatus}</p>
         </div>
 
       </footer>
