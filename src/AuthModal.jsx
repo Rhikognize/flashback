@@ -28,7 +28,7 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
     e.preventDefault()
     setError('')
     if (mode === 'register' && form.password !== form.confirm) {
-      setError('Parolele nu coincid.')
+      setError("Passwords don't match.")
       return
     }
     setBusy(true)
@@ -39,7 +39,7 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
           : await register({ username: form.username, email: form.email, password: form.password })
       onSuccess(user)
     } catch (err) {
-      setError(err.message || 'A apărut o eroare.')
+      setError(err.message || 'Something went wrong.')
     } finally {
       setBusy(false)
     }
@@ -47,10 +47,10 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label="Autentificare" onClick={(e) => e.stopPropagation()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="Authentication" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>{mode === 'login' ? 'Autentificare' : 'Cont nou'}</h2>
-          <button type="button" className="close" onClick={onClose} aria-label="Închide">
+          <h2>{mode === 'login' ? 'Log in' : 'New account'}</h2>
+          <button type="button" className="close" onClick={onClose} aria-label="Close">
             ✕
           </button>
         </div>
@@ -58,13 +58,13 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
         <form className="auth-form" onSubmit={submit}>
           {mode === 'login' ? (
             <label>
-              Utilizator sau email
+              Username or email
               <input value={form.identifier} onChange={set('identifier')} autoComplete="username" required autoFocus />
             </label>
           ) : (
             <>
               <label>
-                Nume utilizator
+                Username
                 <input value={form.username} onChange={set('username')} autoComplete="username" required autoFocus />
               </label>
               <label>
@@ -75,7 +75,7 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
           )}
 
           <label>
-            Parolă
+            Password
             <input
               type="password"
               value={form.password}
@@ -87,7 +87,7 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
 
           {mode === 'register' && (
             <label>
-              Confirmă parola
+              Confirm password
               <input type="password" value={form.confirm} onChange={set('confirm')} autoComplete="new-password" required />
             </label>
           )}
@@ -99,13 +99,13 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
           )}
 
           <button type="submit" className="btn" disabled={busy}>
-            {busy ? 'Se verifică...' : mode === 'login' ? 'Intră' : 'Creează cont'}
+            {busy ? 'Checking...' : mode === 'login' ? 'Log in' : 'Create account'}
           </button>
 
           <p className="auth-switch">
-            {mode === 'login' ? 'Nu ai cont? ' : 'Ai deja cont? '}
+            {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
             <button type="button" className="link" onClick={() => switchMode(mode === 'login' ? 'register' : 'login')}>
-              {mode === 'login' ? 'Înregistrează-te' : 'Autentifică-te'}
+              {mode === 'login' ? 'Sign up' : 'Log in'}
             </button>
           </p>
         </form>

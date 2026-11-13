@@ -1,6 +1,6 @@
-// Autentificare doar în frontend, salvată în localStorage.
-// ATENȚIE: nu este securitate reală. Oricine poate vedea datele din browser.
-// Pentru un site real, autentificarea trebuie făcută pe un server.
+// Frontend-only authentication, stored in localStorage.
+// WARNING: this is not real security. Anyone can read the data in the browser.
+// A real site needs server-side authentication.
 
 const USERS_KEY = 'flashback_users'
 const SESSION_KEY = 'flashback_session'
@@ -18,7 +18,7 @@ function writeJSON(key, value) {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    throw new Error('Nu se poate salva în browser (localStorage este blocat).')
+    throw new Error('Could not save in the browser (localStorage is blocked).')
   }
 }
 
@@ -37,28 +37,35 @@ function makeSalt() {
     .join('')
 }
 
-const publicUser = (u) => ({ id: u.id, username: u.username, email: u.email })
+// The first account created is the admin. Old accounts without a "role" field are treated the same way.
+const publicUser = (u, users) => ({
+  id: u.id,
+  username: u.username,
+  email: u.email,
+  role: u.role || (users[0]?.id === u.id ? 'admin' : 'user'),
+})
 
 export function getSession() {
   const session = readJSON(SESSION_KEY, null)
   if (!session) return null
-  const user = readJSON(USERS_KEY, []).find((u) => u.id === session.id)
-  return user ? publicUser(user) : null
+  const users = readJSON(USERS_KEY, [])
+  const user = users.find((u) => u.id === session.id)
+  return user ? publicUser(user, users) : null
 }
 
 export async function register({ username, email, password }) {
   username = username.trim()
   email = email.trim().toLowerCase()
 
-  if (username.length < 3) throw new Error('Numele de utilizator trebuie să aibă minim 3 caractere.')
-  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Email invalid.')
-  if (password.length < 6) throw new Error('Parola trebuie să aibă minim 6 caractere.')
+  if (username.length < 3) throw new Error('Username must be at least 3 characters.')
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Invalid email.')
+  if (password.length < 6) throw new Error('Password must be at least 6 characters.')
 
   const users = readJSON(USERS_KEY, [])
   if (users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
-    throw new Error('Numele de utilizator este deja folosit.')
+    throw new Error('That username is already taken.')
   }
-  if (users.some((u) => u.email === email)) throw new Error('Există deja un cont cu acest email.')
+  if (users.some((u) => u.email === email)) throw new Error('An account with that email already exists.')
 
   const salt = makeSalt()
   const user = {
@@ -67,27 +74,30 @@ export async function register({ username, email, password }) {
     email,
     salt,
     passwordHash: await hashPassword(password, salt),
+    role: users.length === 0 ? 'admin' : 'user',
     createdAt: new Date().toISOString(),
   }
-  writeJSON(USERS_KEY, [...users, user])
+  const all = [...users, user]
+  writeJSON(USERS_KEY, all)
   writeJSON(SESSION_KEY, { id: user.id })
-  return publicUser(user)
+  return publicUser(user, all)
 }
 
 export async function login({ identifier, password }) {
   const id = identifier.trim().toLowerCase()
-  const user = readJSON(USERS_KEY, []).find((u) => u.email === id || u.username.toLowerCase() === id)
+  const users = readJSON(USERS_KEY, [])
+  const user = users.find((u) => u.email === id || u.username.toLowerCase() === id)
   if (!user || (await hashPassword(password, user.salt)) !== user.passwordHash) {
-    throw new Error('Utilizator sau parolă greșită.')
+    throw new Error('Wrong username or password.')
   }
   writeJSON(SESSION_KEY, { id: user.id })
-  return publicUser(user)
+  return publicUser(user, users)
 }
 
 export function logout() {
   try {
     localStorage.removeItem(SESSION_KEY)
   } catch {
-    /* ignorat */
+    /* ignored */
   }
 }

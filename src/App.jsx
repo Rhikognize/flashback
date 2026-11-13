@@ -4,19 +4,19 @@ import { getSession, logout } from './auth'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
 
-const CATEGORIES = ['Toate', 'Acțiune', 'Aventură', 'Puzzle', 'Sport', 'Strategie', 'Arcade']
+const CATEGORIES = ['All', 'Action', 'Adventure', 'Puzzle', 'Sports', 'Strategy', 'Arcade']
 const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
 
-// Carduri de exemplu, doar pentru aspectul paginii. Le poți înlocui când adaugi conținut real.
+// Sample cards, only for the look of the page. You can replace them when you add real content.
 const PLACEHOLDERS = [
-  { id: 1, title: 'Titlu joc', category: 'Acțiune', emoji: '🚀', description: 'Descriere scurtă a jocului.' },
-  { id: 2, title: 'Titlu joc', category: 'Aventură', emoji: '🗡️', description: 'Descriere scurtă a jocului.' },
-  { id: 3, title: 'Titlu joc', category: 'Puzzle', emoji: '🧩', description: 'Descriere scurtă a jocului.' },
-  { id: 4, title: 'Titlu joc', category: 'Sport', emoji: '⚽', description: 'Descriere scurtă a jocului.' },
-  { id: 5, title: 'Titlu joc', category: 'Strategie', emoji: '🏰', description: 'Descriere scurtă a jocului.' },
-  { id: 6, title: 'Titlu joc', category: 'Arcade', emoji: '🐍', description: 'Descriere scurtă a jocului.' },
-  { id: 7, title: 'Titlu joc', category: 'Acțiune', emoji: '🥷', description: 'Descriere scurtă a jocului.' },
-  { id: 8, title: 'Titlu joc', category: 'Aventură', emoji: '🏝️', description: 'Descriere scurtă a jocului.' },
+  { id: 1, title: 'Game title', category: 'Action', emoji: '🚀', description: 'Short description of the game.' },
+  { id: 2, title: 'Game title', category: 'Adventure', emoji: '🗡️', description: 'Short description of the game.' },
+  { id: 3, title: 'Game title', category: 'Puzzle', emoji: '🧩', description: 'Short description of the game.' },
+  { id: 4, title: 'Game title', category: 'Sports', emoji: '⚽', description: 'Short description of the game.' },
+  { id: 5, title: 'Game title', category: 'Strategy', emoji: '🏰', description: 'Short description of the game.' },
+  { id: 6, title: 'Game title', category: 'Arcade', emoji: '🐍', description: 'Short description of the game.' },
+  { id: 7, title: 'Game title', category: 'Action', emoji: '🥷', description: 'Short description of the game.' },
+  { id: 8, title: 'Game title', category: 'Adventure', emoji: '🏝️', description: 'Short description of the game.' },
 ]
 
 function Card({ item }) {
@@ -36,7 +36,7 @@ function Card({ item }) {
 
 function App() {
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('Toate')
+  const [category, setCategory] = useState('All')
   const [user, setUser] = useState(getSession)
   const [authMode, setAuthMode] = useState(null) // null | 'login' | 'register'
 
@@ -49,7 +49,7 @@ function App() {
     const q = query.trim().toLowerCase()
     return PLACEHOLDERS.filter(
       (g) =>
-        (category === 'Toate' || g.category === category) &&
+        (category === 'All' || g.category === category) &&
         (!q || g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q)),
     )
   }, [query, category])
@@ -87,26 +87,26 @@ function App() {
           <input
             className="search"
             type="search"
-            placeholder="Caută un joc..."
+            placeholder="Search for a game..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Caută un joc"
+            aria-label="Search for a game"
           />
           <div className="header-actions">
             {user ? (
               <>
                 <span className="user-chip">👤 {user.username}</span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-                  Ieși
+                  Log out
                 </button>
               </>
             ) : (
               <>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
-                  Intră
+                  Log in
                 </button>
                 <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
-                  Cont nou
+                  Sign up
                 </button>
               </>
             )}
@@ -117,12 +117,12 @@ function App() {
       <main>
         <section className="hero container">
           <h1>
-            Jocurile Flash <span>nu au murit.</span>
+            Flash games <span>aren&apos;t dead.</span>
           </h1>
           <p>
             {user
-              ? `Bine ai revenit, ${user.username}! Apasă START.`
-              : 'Joacă clasicele tale preferate direct în browser. Apasă START.'}
+              ? `Welcome back, ${user.username}! Press START.`
+              : 'Play your favorite classics right in your browser. Press START.'}
           </p>
           <div className="hero-actions">
             <a className="btn" href="#jocuri">
@@ -133,8 +133,8 @@ function App() {
 
         <section className="container" id="jocuri">
           <div className="section-head">
-            <h2>Toate jocurile</h2>
-            <div className="chips" role="tablist" aria-label="Categorii">
+            <h2>All games</h2>
+            <div className="chips" role="tablist" aria-label="Categories">
               {CATEGORIES.map((c) => (
                 <button
                   key={c}
@@ -154,7 +154,7 @@ function App() {
             {filtered.length ? (
               filtered.map((g) => <Card key={g.id} item={g} />)
             ) : (
-              <p className="empty">Nimic găsit. Încearcă altă căutare sau altă categorie.</p>
+              <p className="empty">Nothing found. Try another search or category.</p>
             )}
           </div>
         </section>
