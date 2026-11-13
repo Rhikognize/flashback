@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flashback-r2-worker",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-04",
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+
+  "r2_buckets": [
+    {
+      "binding": "FLASHBACK_BUCKET",
+      "bucket_name": "flashback"
+    }
+  ]
+}
