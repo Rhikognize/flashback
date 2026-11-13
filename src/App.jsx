@@ -3,27 +3,19 @@ import AuthModal from './AuthModal'
 import { getSession, logout } from './auth'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
+import { useCatalog } from './useCatalog'
 
-const CATEGORIES = ['All', 'Action', 'Adventure', 'Puzzle', 'Sports', 'Strategy', 'Arcade']
 const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
 
-// Sample cards, only for the look of the page. You can replace them when you add real content.
-const PLACEHOLDERS = [
-  { id: 1, title: 'Game title', category: 'Action', emoji: '🚀', description: 'Short description of the game.' },
-  { id: 2, title: 'Game title', category: 'Adventure', emoji: '🗡️', description: 'Short description of the game.' },
-  { id: 3, title: 'Game title', category: 'Puzzle', emoji: '🧩', description: 'Short description of the game.' },
-  { id: 4, title: 'Game title', category: 'Sports', emoji: '⚽', description: 'Short description of the game.' },
-  { id: 5, title: 'Game title', category: 'Strategy', emoji: '🏰', description: 'Short description of the game.' },
-  { id: 6, title: 'Game title', category: 'Arcade', emoji: '🐍', description: 'Short description of the game.' },
-  { id: 7, title: 'Game title', category: 'Action', emoji: '🥷', description: 'Short description of the game.' },
-  { id: 8, title: 'Game title', category: 'Adventure', emoji: '🏝️', description: 'Short description of the game.' },
-]
-
-function Card({ item }) {
+function Card({ item, onPlay }) {
   return (
-    <article className="card">
+    <article className="card" onClick={() => onPlay(item)} style={{ cursor: 'pointer' }}>
       <div className="thumb">
-        <span aria-hidden="true">{item.emoji}</span>
+        {item.iconUrl ? (
+          <img src={item.iconUrl} alt={item.title} loading="lazy" />
+        ) : (
+          <span aria-hidden="true">🎮</span>
+        )}
       </div>
       <div className="card-body">
         <h3>{item.title}</h3>
@@ -34,11 +26,37 @@ function Card({ item }) {
   )
 }
 
+function GameModal({ game, onClose }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="game-modal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="btn btn-ghost btn-sm game-close" onClick={onClose}>
+          ✕
+        </button>
+        <h2>{game.title}</h2>
+        <p className="game-meta">{game.developer} · {game.category}</p>
+        <FlashPlayer src={game.fileUrl} />
+        <p>{game.description}</p>
+        {game.thumbnails.length > 0 && (
+          <div className="thumbs">
+            {game.thumbnails.map((t) => (
+              <img key={t} src={t} alt="" loading="lazy" />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('All')
+  const [category, setCategory] = useState('all') // id категории или 'all'
   const [user, setUser] = useState(getSession)
-  const [authMode, setAuthMode] = useState(null) // null | 'login' | 'register'
+  const [authMode, setAuthMode] = useState(null)
+  const [activeGame, setActiveGame] = useState(null)
+
+  const { games, categories, loading, error } = useCatalog()
 
   const handleLogout = () => {
     logout()
@@ -47,12 +65,14 @@ function App() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return PLACEHOLDERS.filter(
+    return games.filter(
       (g) =>
-        (category === 'All' || g.category === category) &&
-        (!q || g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q)),
+        (category === 'all' || g.categoryId === category) &&
+        (!q ||
+          g.title?.toLowerCase().includes(q) ||
+          g.description?.toLowerCase().includes(q)),
     )
-  }, [query, category])
+  }, [games, query, category])
 
   const [workerStatus, setWorkerStatus] = useState('Checking...')
 
@@ -60,19 +80,13 @@ function App() {
     async function checkWorker() {
       try {
         const response = await fetch(WORKER_URL)
-
-        if (!response.ok) {
-          throw new Error(`HTTP Error: ${response.status}`)
-        }
-
-        const result = await response.text()
-        setWorkerStatus(result)
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`)
+        setWorkerStatus(await response.text())
       } catch (error) {
         console.error('Worker connection error:', error)
         setWorkerStatus('Connection failed')
       }
     }
-
     checkWorker()
   }, [])
 
@@ -87,26 +101,26 @@ function App() {
           <input
             className="search"
             type="search"
-            placeholder="Search for a game..."
+            placeholder="Caută un joc..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search for a game"
+            aria-label="Caută un joc"
           />
           <div className="header-actions">
             {user ? (
               <>
                 <span className="user-chip">👤 {user.username}</span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-                  Log out
+                  Ieși
                 </button>
               </>
             ) : (
               <>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
-                  Log in
+                  Intră
                 </button>
                 <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
-                  Sign up
+                  Cont nou
                 </button>
               </>
             )}
@@ -117,51 +131,61 @@ function App() {
       <main>
         <section className="hero container">
           <h1>
-            Flash games <span>aren&apos;t dead.</span>
+            Jocurile Flash <span>nu au murit.</span>
           </h1>
           <p>
             {user
-              ? `Welcome back, ${user.username}! Press START.`
-              : 'Play your favorite classics right in your browser. Press START.'}
+              ? `Bine ai revenit, ${user.username}! Apasă START.`
+              : 'Joacă clasicele tale preferate direct în browser. Apasă START.'}
           </p>
           <div className="hero-actions">
-            <a className="btn" href="#jocuri">
-              ▶ Start
-            </a>
+            <a className="btn" href="#jocuri">▶ Start</a>
           </div>
         </section>
 
         <section className="container" id="jocuri">
           <div className="section-head">
-            <h2>All games</h2>
-            <div className="chips" role="tablist" aria-label="Categories">
-              {CATEGORIES.map((c) => (
+            <h2>Toate jocurile</h2>
+            <div className="chips" role="tablist" aria-label="Categorii">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={category === 'all'}
+                className={`chip ${category === 'all' ? 'active' : ''}`}
+                onClick={() => setCategory('all')}
+              >
+                Toate
+              </button>
+              {categories.map((c) => (
                 <button
-                  key={c}
+                  key={c.id}
                   type="button"
                   role="tab"
-                  aria-selected={category === c}
-                  className={`chip ${category === c ? 'active' : ''}`}
-                  onClick={() => setCategory(c)}
+                  aria-selected={category === c.id}
+                  className={`chip ${category === c.id ? 'active' : ''}`}
+                  onClick={() => setCategory(c.id)}
                 >
-                  {c}
+                  {c.name}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="grid">
-            {filtered.length ? (
-              filtered.map((g) => <Card key={g.id} item={g} />)
+            {loading ? (
+              <p className="empty">Se încarcă...</p>
+            ) : error ? (
+              <p className="empty">Eroare la încărcarea jocurilor.</p>
+            ) : filtered.length ? (
+              filtered.map((g) => <Card key={g.id} item={g} onPlay={setActiveGame} />)
             ) : (
-              <p className="empty">Nothing found. Try another search or category.</p>
+              <p className="empty">Nimic găsit. Încearcă altă căutare sau altă categorie.</p>
             )}
           </div>
         </section>
       </main>
 
       <footer className="footer">
-
         <div className="container">Flashback</div>
         <div>
           <p>Temporary</p>
@@ -170,8 +194,9 @@ function App() {
           <p>Firestore: {db ? "Connected" : "Error"}</p>
           <p>Cloudflare Worker: {workerStatus}</p>
         </div>
-
       </footer>
+
+      {activeGame && <GameModal game={activeGame} onClose={() => setActiveGame(null)} />}
 
       {authMode && (
         <AuthModal
