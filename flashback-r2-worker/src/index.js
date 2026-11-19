@@ -49,6 +49,14 @@ export default {
 
       return new Response(request.method === "HEAD" ? null : object.body, { headers });
     }
+    if (request.method === "GET" && url.pathname.startsWith("/list/")) {
+      const prefix = decodeURIComponent(url.pathname.substring("/list/".length));
+      const listed = await env.FLASHBACK_BUCKET.list({ prefix });
+      const keys = listed.objects.map((o) => o.key);
+      return new Response(JSON.stringify(keys), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     return new Response("Not Found", { status: 404, headers: corsHeaders });
   },
