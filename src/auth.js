@@ -1,9 +1,15 @@
 import {
   createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth'
 
-import { doc, setDoc } from 'firebase/firestore'
+import {
+  doc,
+  setDoc,
+  getDoc,
+} from 'firebase/firestore'
+
 import { auth, db } from './firebase/firebase'
 
 const DEFAULT_ROLE = 'User'
@@ -63,6 +69,29 @@ export async function register({ username, email, password }) {
 
   } catch (err) {
     console.error('Registration error:', err)
+    throw friendlyError(err)
+  }
+}
+
+export async function login({ email, password }) {
+  try {
+    const { user: fbUser } = await signInWithEmailAndPassword(
+      auth,
+      email.trim().toLowerCase(),
+      password
+    )
+
+    const snap = await getDoc(doc(db, 'users', fbUser.uid))
+    const data = snap.exists() ? snap.data() : {}
+
+    return {
+      id: fbUser.uid,
+      email: fbUser.email,
+      username: data.Name || fbUser.displayName || fbUser.email,
+      role: data.Role || DEFAULT_ROLE,
+    }
+  } catch (err) {
+    console.error('Login error:', err)
     throw friendlyError(err)
   }
 }
