@@ -1,56 +1,50 @@
-// Frontend-only authentication, stored in localStorage.
-// WARNING: this is not real security. Anyone can read the data in the browser.
-// A real site needs server-side authentication.
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  updateProfile,
+} from 'firebase/auth'
+import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { auth, db } from './firebase/firebase'
 
-const USERS_KEY = 'flashback_users'
-const SESSION_KEY = 'flashback_session'
+const DEFAULT_ROLE = 'User'
 
-function readJSON(key, fallback) {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw ? JSON.parse(raw) : fallback
-  } catch {
-    return fallback
+function friendlyError(err) {
+  const map = {
+    'auth/email-already-in-use': 'An account with that email already exists.',
+    'auth/invalid-email': 'Invalid email.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/invalid-credential': 'Wrong email or password.',
+    'auth/user-not-found': 'Wrong email or password.',
+    'auth/wrong-password': 'Wrong email or password.',
+    'auth/too-many-requests': 'Too many attempts. Try again later.',
+  }
+  return new Error(map[err.code] || err.message || 'Something went wrong.')
+}
+
+async function loadProfile(fbUser) {
+  const snap = await getDoc(doc(db, 'users', fbUser.uid))
+  const data = snap.exists() ? snap.data() : {}
+  return {
+    id: fbUser.uid,
+    email: fbUser.email,
+    username: data.Name || fbUser.displayName || fbUser.email,
+    role: data.Role || DEFAULT_ROLE,
   }
 }
 
-function writeJSON(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value))
-  } catch {
-    throw new Error('Could not save in the browser (localStorage is blocked).')
-  }
-}
-
-async function hashPassword(password, salt) {
-  const data = new TextEncoder().encode(`${salt}:${password}`)
-  const buf = await crypto.subtle.digest('SHA-256', data)
-  return Array.from(new Uint8Array(buf))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
-function makeSalt() {
-  const bytes = crypto.getRandomValues(new Uint8Array(16))
-  return Array.from(bytes)
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
-// The first account created is the admin. Old accounts without a "role" field are treated the same way.
-const publicUser = (u, users) => ({
-  id: u.id,
-  username: u.username,
-  email: u.email,
-  role: u.role || (users[0]?.id === u.id ? 'admin' : 'user'),
-})
-
-export function getSession() {
-  const session = readJSON(SESSION_KEY, null)
-  if (!session) return null
-  const users = readJSON(USERS_KEY, [])
-  const user = users.find((u) => u.id === session.id)
-  return user ? publicUser(user, users) : null
+export function subscribeAuth(callback) {
+  return onAuthStateChanged(auth, async (fbUser) => {
+    if (!fbUser) {
+      callback(null)
+      return
+    }
+    try {
+      callback(await loadProfile(fbUser))
+    } catch (err) {
+      console.error('Profile load error:', err)
+      callback(null)
+    }
+  })
 }
 
 export async function register({ username, email, password }) {
@@ -61,43 +55,15 @@ export async function register({ username, email, password }) {
   if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Invalid email.')
   if (password.length < 6) throw new Error('Password must be at least 6 characters.')
 
-  const users = readJSON(USERS_KEY, [])
-  if (users.some((u) => u.username.toLowerCase() === username.toLowerCase())) {
-    throw new Error('That username is already taken.')
-  }
-  if (users.some((u) => u.email === email)) throw new Error('An account with that email already exists.')
-
-  const salt = makeSalt()
-  const user = {
-    id: crypto.randomUUID(),
-    username,
-    email,
-    salt,
-    passwordHash: await hashPassword(password, salt),
-    role: users.length === 0 ? 'admin' : 'user',
-    createdAt: new Date().toISOString(),
-  }
-  const all = [...users, user]
-  writeJSON(USERS_KEY, all)
-  writeJSON(SESSION_KEY, { id: user.id })
-  return publicUser(user, all)
-}
-
-export async function login({ identifier, password }) {
-  const id = identifier.trim().toLowerCase()
-  const users = readJSON(USERS_KEY, [])
-  const user = users.find((u) => u.email === id || u.username.toLowerCase() === id)
-  if (!user || (await hashPassword(password, user.salt)) !== user.passwordHash) {
-    throw new Error('Wrong username or password.')
-  }
-  writeJSON(SESSION_KEY, { id: user.id })
-  return publicUser(user, users)
-}
-
-export function logout() {
   try {
-    localStorage.removeItem(SESSION_KEY)
-  } catch {
-    /* ignored */
+    const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password)
+    await updateProfile(fbUser, { displayName: username })
+    await setDoc(doc(db, 'users', fbUser.uid), {
+      Name: username,
+      Role: DEFAULT_ROLE,
+    })
+    return { id: fbUser.uid, email: fbUser.email, username, role: DEFAULT_ROLE }
+  } catch (err) {
+    throw friendlyError(err)
   }
 }
