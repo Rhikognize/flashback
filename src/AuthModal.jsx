@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { register, login } from './auth'
+import { login, register } from './auth'
 
 export default function AuthModal({ initialMode = 'login', onClose, onSuccess }) {
   const [mode, setMode] = useState(initialMode)
