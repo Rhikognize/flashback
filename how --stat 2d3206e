@@ -1,0 +1,20 @@
+*   [33m2d3206e[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #10 from Rhikognize/feature/KAN-62-show_games
+[31m|[m[32m\[m  
+[31m|[m * [33mda0ef95[m[33m ([m[1;31morigin/feature/KAN-62-show_games[m[33m)[m show games from firebase
+* [32m|[m   [33maa597ea[m Merge pull request #9 from Rhikognize/update/KAN-42-data-structure
+[32m|[m[34m\[m [32m\[m  
+[32m|[m [34m|[m[32m/[m  
+[32m|[m[32m/[m[34m|[m   
+[32m|[m * [33mf08a375[m[33m ([m[1;31morigin/update/KAN-42-data-structure[m[33m)[m Updated data structure
+[32m|[m[32m/[m  
+*   [33m2b4fbc1[m Merge pull request #7 from Rhikognize/feature/KAN-34-retrieval
+[35m|[m[36m\[m  
+[35m|[m * [33mabf0e2f[m[33m ([m[1;31morigin/feature/KAN-34-retrieval[m[33m, [m[1;32mfeature/KAN-34-retrieval[m[33m)[m Added retrieval data from FireBase firestore and Cloudflare R2
+[35m|[m[35m/[m  
+*   [33m630b2ae[m Merge pull request #6 from Rhikognize/feature/KAN-61-change_main_language
+[1;31m|[m[1;32m\[m  
+[1;31m|[m * [33mc5c889a[m[33m ([m[1;31morigin/feature/KAN-61-change_main_language[m[33m)[m changed the main language in EN for main page
+[1;31m|[m[1;31m/[m  
+*   [33md6fd3b8[m Merge pull request #5 from Rhikognize/fix/KAN-59-fix_env_file
+[1;33m|[m[1;34m\[m  
+[1;33m|[m * [33m4d55f4b[m[33m ([m[1;31morigin/fix/KAN-59-fix_env_file[m[33m)[m Created .env.example for API KEYS

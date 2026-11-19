@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { login, register } from './auth'
+import { register } from './auth'
 
-export default function AuthModal({ initialMode = 'login', onClose, onSuccess }) {
+export default function AuthModal({ initialMode = 'register', onClose, onSuccess }) {
   const [mode, setMode] = useState(initialMode)
   const [form, setForm] = useState({ identifier: '', username: '', email: '', password: '', confirm: '' })
   const [error, setError] = useState('')
