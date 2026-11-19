@@ -1,44 +1,73 @@
 import { useEffect, useMemo, useState } from 'react'
 import AuthModal from './AuthModal'
 import { getSession, logout } from './auth'
+import { useCatalog } from './useCatalog'
+import { getReviews } from './reviews'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
 
-const CATEGORIES = ['All', 'Action', 'Adventure', 'Puzzle', 'Sports', 'Strategy', 'Arcade']
 const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
 
-// Sample cards, only for the look of the page. You can replace them when you add real content.
-const PLACEHOLDERS = [
-  { id: 1, title: 'Game title', category: 'Action', emoji: '🚀', description: 'Short description of the game.' },
-  { id: 2, title: 'Game title', category: 'Adventure', emoji: '🗡️', description: 'Short description of the game.' },
-  { id: 3, title: 'Game title', category: 'Puzzle', emoji: '🧩', description: 'Short description of the game.' },
-  { id: 4, title: 'Game title', category: 'Sports', emoji: '⚽', description: 'Short description of the game.' },
-  { id: 5, title: 'Game title', category: 'Strategy', emoji: '🏰', description: 'Short description of the game.' },
-  { id: 6, title: 'Game title', category: 'Arcade', emoji: '🐍', description: 'Short description of the game.' },
-  { id: 7, title: 'Game title', category: 'Action', emoji: '🥷', description: 'Short description of the game.' },
-  { id: 8, title: 'Game title', category: 'Adventure', emoji: '🏝️', description: 'Short description of the game.' },
-]
-
-function Card({ item }) {
+function Stars({ value }) {
+  if (value == null) return <span className="stars">— no ratings yet</span>
+  const rounded = Math.round(value)
   return (
-    <article className="card">
+    <span className="stars">
+      {'★'.repeat(rounded)}
+      {'☆'.repeat(5 - rounded)} ({value.toFixed(1)})
+    </span>
+  )
+}
+
+function Card({ item, onPlay }) {
+  return (
+    <article className="card" onClick={() => onPlay(item)} style={{ cursor: 'pointer' }}>
       <div className="thumb">
-        <span aria-hidden="true">{item.emoji}</span>
+        {item.iconUrl ? (
+          <img src={item.iconUrl} alt={item.title} loading="lazy" />
+        ) : (
+          <span aria-hidden="true">🎮</span>
+        )}
       </div>
       <div className="card-body">
         <h3>{item.title}</h3>
         <p>{item.description}</p>
         <span className="tag">{item.category}</span>
+        <Stars value={item.rating} />
       </div>
     </article>
   )
 }
 
+function GameModal({ game, onClose }) {
+  const [reviews, setReviews] = useState([])
+  const [loadingReviews, setLoadingReviews] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoadingReviews(true)
+    getReviews(game.id)
+      .then((r) => !cancelled && setReviews(r))
+      .catch((err) => console.error('Reviews load error:', err))
+      .finally(() => !cancelled && setLoadingReviews(false))
+    return () => { cancelled = true }
+  }, [game.id])
+
+}
+
 function App() {
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('All')
+  const [category, setCategory] = useState('all')
   const [user, setUser] = useState(getSession)
-  const [authMode, setAuthMode] = useState(null) // null | 'login' | 'register'
+  const [authMode, setAuthMode] = useState(null)
+  const [activeGame, setActiveGame] = useState(null)
+
+  const { games: loadedGames, categories, loading, error } = useCatalog()
+  const [games, setGames] = useState([])
+
+  useEffect(() => {
+    setGames(loadedGames)
+  }, [loadedGames])
 
   const handleLogout = () => {
     logout()
@@ -47,12 +76,14 @@ function App() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return PLACEHOLDERS.filter(
+    return games.filter(
       (g) =>
-        (category === 'All' || g.category === category) &&
-        (!q || g.title.toLowerCase().includes(q) || g.description.toLowerCase().includes(q)),
+        (category === 'all' || g.categoryId === category) &&
+        (!q ||
+          g.title?.toLowerCase().includes(q) ||
+          g.description?.toLowerCase().includes(q)),
     )
-  }, [query, category])
+  }, [games, query, category])
 
   const [workerStatus, setWorkerStatus] = useState('Checking...')
 
@@ -135,24 +166,37 @@ function App() {
           <div className="section-head">
             <h2>All games</h2>
             <div className="chips" role="tablist" aria-label="Categories">
-              {CATEGORIES.map((c) => (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={category === 'all'}
+                className={`chip ${category === 'all' ? 'active' : ''}`}
+                onClick={() => setCategory('all')}
+              >
+                All
+              </button>
+              {categories.map((c) => (
                 <button
-                  key={c}
+                  key={c.id}
                   type="button"
                   role="tab"
-                  aria-selected={category === c}
-                  className={`chip ${category === c ? 'active' : ''}`}
-                  onClick={() => setCategory(c)}
+                  aria-selected={category === c.id}
+                  className={`chip ${category === c.id ? 'active' : ''}`}
+                  onClick={() => setCategory(c.id)}
                 >
-                  {c}
+                  {c.name}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="grid">
-            {filtered.length ? (
-              filtered.map((g) => <Card key={g.id} item={g} />)
+            {loading ? (
+              <p className="empty">Loading...</p>
+            ) : error ? (
+              <p className="empty">Error loading games.</p>
+            ) : filtered.length ? (
+              filtered.map((g) => <Card key={g.id} item={g} onPlay={setActiveGame} />)
             ) : (
               <p className="empty">Nothing found. Try another search or category.</p>
             )}
@@ -172,6 +216,8 @@ function App() {
         </div>
 
       </footer>
+
+      {activeGame && <GameModal game={activeGame} onClose={() => setActiveGame(null)} />}
 
       {authMode && (
         <AuthModal
