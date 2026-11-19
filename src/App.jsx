@@ -1,5 +1,7 @@
-
 import { useEffect, useMemo, useState } from 'react'
+import { onAuthStateChanged } from 'firebase/auth'
+import { doc, getDoc } from 'firebase/firestore'
+
 import AuthModal from './AuthModal'
 import { useCatalog } from './useCatalog'
 import { getReviews } from './reviews'
@@ -59,19 +61,63 @@ function GameModal({ game, onClose }) {
 
     getReviews(game.id)
       .then((result) => {
-        if (!cancelled) setReviews(result)
+        if (!cancelled) {
+          setReviews(result || [])
+        }
       })
       .catch((err) => {
         console.error('Reviews load error:', err)
       })
       .finally(() => {
-        if (!cancelled) setLoadingReviews(false)
+        if (!cancelled) {
+          setLoadingReviews(false)
+        }
       })
 
     return () => {
       cancelled = true
     }
   }, [game.id])
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <h2>{game.title}</h2>
+
+          <button
+            type="button"
+            className="close"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="game-details">
+          <p>{game.description}</p>
+          <span className="tag">{game.category}</span>
+          <Stars value={game.rating} />
+
+          <h3>Reviews</h3>
+
+          {loadingReviews ? (
+            <p>Loading reviews...</p>
+          ) : reviews.length > 0 ? (
+            <p>{reviews.length} reviews</p>
+          ) : (
+            <p>No reviews yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function App() {
@@ -79,6 +125,8 @@ function App() {
   const [category, setCategory] = useState('all')
 
   const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+
   const [authMode, setAuthMode] = useState(null)
   const [activeGame, setActiveGame] = useState(null)
 
@@ -90,6 +138,47 @@ function App() {
   } = useCatalog()
 
   const [games, setGames] = useState([])
+
+  // Restore Firebase authentication after page reload
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setUser(null)
+        setAuthLoading(false)
+        return
+      }
+
+      try {
+        const userRef = doc(db, 'users', firebaseUser.uid)
+        const userSnap = await getDoc(userRef)
+
+        const data = userSnap.exists() ? userSnap.data() : {}
+
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email,
+          username:
+            data.Name ||
+            firebaseUser.displayName ||
+            firebaseUser.email,
+          role: data.Role || 'User',
+        })
+      } catch (err) {
+        console.error('Error restoring user session:', err)
+
+        setUser({
+          id: firebaseUser.uid,
+          email: firebaseUser.email,
+          username: firebaseUser.displayName || firebaseUser.email,
+          role: 'User',
+        })
+      } finally {
+        setAuthLoading(false)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   useEffect(() => {
     setGames(loadedGames)
@@ -164,19 +253,27 @@ function App() {
           />
 
           <div className="header-actions">
-            {user ? (
-              <>
-                <span className="user-chip">👤 {user.username}</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-                  Log out
-                </button>
-              </>
+            {authLoading ? (
+              <span className="user-chip">Loading...</span>
+            ) : user ? (
+              <span className="user-chip">
+                👤 {user.username}
+              </span>
             ) : (
               <>
-                <button type="button" className="btn btn-ghost btn-sm">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setAuthMode('login')}
+                >
                   Log in
                 </button>
-                <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
+
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => setAuthMode('register')}
+                >
                   Sign up
                 </button>
               </>
@@ -283,9 +380,10 @@ function App() {
 
       {authMode && (
         <AuthModal
+          initialMode={authMode}
           onClose={() => setAuthMode(null)}
-          onSuccess={(registeredUser) => {
-            setUser(registeredUser)
+          onSuccess={(authenticatedUser) => {
+            setUser(authenticatedUser)
             setAuthMode(null)
           }}
         />

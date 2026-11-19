@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { register } from './auth'
+import { register, login } from './auth'
 
-export default function AuthModal({ initialMode = 'register', onClose, onSuccess }) {
+export default function AuthModal({ initialMode = 'login', onClose, onSuccess }) {
   const [mode, setMode] = useState(initialMode)
-  const [form, setForm] = useState({ identifier: '', username: '', email: '', password: '', confirm: '' })
+  const [form, setForm] = useState({ email: '', username: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -35,7 +35,7 @@ export default function AuthModal({ initialMode = 'register', onClose, onSuccess
     try {
       const user =
         mode === 'login'
-          ? await login({ identifier: form.identifier, password: form.password })
+          ? await login({ email: form.email, password: form.password })
           : await register({ username: form.username, email: form.email, password: form.password })
       onSuccess(user)
     } catch (err) {
@@ -58,8 +58,8 @@ export default function AuthModal({ initialMode = 'register', onClose, onSuccess
         <form className="auth-form" onSubmit={submit}>
           {mode === 'login' ? (
             <label>
-              Username or email
-              <input value={form.identifier} onChange={set('identifier')} autoComplete="username" required autoFocus />
+              Email
+              <input type="email" value={form.email} onChange={set('email')} autoComplete="email" required autoFocus />
             </label>
           ) : (
             <>
