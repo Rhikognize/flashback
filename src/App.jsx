@@ -1,16 +1,20 @@
+
 import { useEffect, useMemo, useState } from 'react'
 import AuthModal from './AuthModal'
-import { getSession, logout } from './auth'
 import { useCatalog } from './useCatalog'
 import { getReviews } from './reviews'
 import './App.css'
-import { auth, db } from "./firebase/firebase";
+import { auth, db } from './firebase/firebase'
 
-const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
+const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL
 
 function Stars({ value }) {
-  if (value == null) return <span className="stars">— no ratings yet</span>
+  if (value == null) {
+    return <span className="stars">— no ratings yet</span>
+  }
+
   const rounded = Math.round(value)
+
   return (
     <span className="stars">
       {'★'.repeat(rounded)}
@@ -21,7 +25,11 @@ function Stars({ value }) {
 
 function Card({ item, onPlay }) {
   return (
-    <article className="card" onClick={() => onPlay(item)} style={{ cursor: 'pointer' }}>
+    <article
+      className="card"
+      onClick={() => onPlay(item)}
+      style={{ cursor: 'pointer' }}
+    >
       <div className="thumb">
         {item.iconUrl ? (
           <img src={item.iconUrl} alt={item.title} loading="lazy" />
@@ -29,6 +37,7 @@ function Card({ item, onPlay }) {
           <span aria-hidden="true">🎮</span>
         )}
       </div>
+
       <div className="card-body">
         <h3>{item.title}</h3>
         <p>{item.description}</p>
@@ -45,49 +54,66 @@ function GameModal({ game, onClose }) {
 
   useEffect(() => {
     let cancelled = false
-    setLoadingReviews(true)
-    getReviews(game.id)
-      .then((r) => !cancelled && setReviews(r))
-      .catch((err) => console.error('Reviews load error:', err))
-      .finally(() => !cancelled && setLoadingReviews(false))
-    return () => { cancelled = true }
-  }, [game.id])
 
+    setLoadingReviews(true)
+
+    getReviews(game.id)
+      .then((result) => {
+        if (!cancelled) setReviews(result)
+      })
+      .catch((err) => {
+        console.error('Reviews load error:', err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingReviews(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [game.id])
 }
 
 function App() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
-  const [user, setUser] = useState(getSession)
+
+  const [user, setUser] = useState(null)
   const [authMode, setAuthMode] = useState(null)
   const [activeGame, setActiveGame] = useState(null)
 
-  const { games: loadedGames, categories, loading, error } = useCatalog()
+  const {
+    games: loadedGames,
+    categories,
+    loading,
+    error,
+  } = useCatalog()
+
   const [games, setGames] = useState([])
 
   useEffect(() => {
     setGames(loadedGames)
   }, [loadedGames])
 
-  const handleLogout = () => {
-    logout()
-    setUser(null)
-  }
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
+
     return games.filter(
-      (g) =>
-        (category === 'all' || g.categoryId === category) &&
-        (!q ||
-          g.title?.toLowerCase().includes(q) ||
-          g.description?.toLowerCase().includes(q)),
+      (game) =>
+        (category === 'all' || game.categoryId === category) &&
+        (
+          !q ||
+          game.title?.toLowerCase().includes(q) ||
+          game.description?.toLowerCase().includes(q)
+        )
     )
   }, [games, query, category])
 
   const [workerStatus, setWorkerStatus] = useState('Checking...')
 
   useEffect(() => {
+    let cancelled = false
+
     async function checkWorker() {
       try {
         const response = await fetch(WORKER_URL)
@@ -97,14 +123,24 @@ function App() {
         }
 
         const result = await response.text()
-        setWorkerStatus(result)
-      } catch (error) {
-        console.error('Worker connection error:', error)
-        setWorkerStatus('Connection failed')
+
+        if (!cancelled) {
+          setWorkerStatus(result)
+        }
+      } catch (err) {
+        console.error('Worker connection error:', err)
+
+        if (!cancelled) {
+          setWorkerStatus('Connection failed')
+        }
       }
     }
 
     checkWorker()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return (
@@ -112,9 +148,12 @@ function App() {
       <header className="header">
         <div className="container header-inner">
           <a className="logo" href="/">
-            <span className="logo-mark" aria-hidden="true">🕹️</span>
+            <span className="logo-mark" aria-hidden="true">
+              🕹️
+            </span>
             Flashback
           </a>
+
           <input
             className="search"
             type="search"
@@ -123,6 +162,7 @@ function App() {
             onChange={(e) => setQuery(e.target.value)}
             aria-label="Search for a game"
           />
+
           <div className="header-actions">
             {user ? (
               <>
@@ -133,7 +173,7 @@ function App() {
               </>
             ) : (
               <>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
+                <button type="button" className="btn btn-ghost btn-sm">
                   Log in
                 </button>
                 <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
@@ -150,11 +190,13 @@ function App() {
           <h1>
             Flash games <span>aren&apos;t dead.</span>
           </h1>
+
           <p>
             {user
-              ? `Welcome back, ${user.username}! Press START.`
+              ? `Welcome, ${user.username}! Press START.`
               : 'Play your favorite classics right in your browser. Press START.'}
           </p>
+
           <div className="hero-actions">
             <a className="btn" href="#jocuri">
               ▶ Start
@@ -165,7 +207,12 @@ function App() {
         <section className="container" id="jocuri">
           <div className="section-head">
             <h2>All games</h2>
-            <div className="chips" role="tablist" aria-label="Categories">
+
+            <div
+              className="chips"
+              role="tablist"
+              aria-label="Categories"
+            >
               <button
                 type="button"
                 role="tab"
@@ -175,6 +222,7 @@ function App() {
               >
                 All
               </button>
+
               {categories.map((c) => (
                 <button
                   key={c.id}
@@ -195,36 +243,49 @@ function App() {
               <p className="empty">Loading...</p>
             ) : error ? (
               <p className="empty">Error loading games.</p>
-            ) : filtered.length ? (
-              filtered.map((g) => <Card key={g.id} item={g} onPlay={setActiveGame} />)
+            ) : filtered.length > 0 ? (
+              filtered.map((game) => (
+                <Card
+                  key={game.id}
+                  item={game}
+                  onPlay={setActiveGame}
+                />
+              ))
             ) : (
-              <p className="empty">Nothing found. Try another search or category.</p>
+              <p className="empty">
+                Nothing found. Try another search or category.
+              </p>
             )}
           </div>
         </section>
       </main>
 
       <footer className="footer">
+        <div className="container">
+          Flashback
+        </div>
 
-        <div className="container">Flashback</div>
         <div>
           <p>Temporary</p>
           <p>Firebase initialized successfully!</p>
-          <p>Authentication: {auth ? "Connected" : "Error"}</p>
-          <p>Firestore: {db ? "Connected" : "Error"}</p>
+          <p>Authentication: {auth ? 'Connected' : 'Error'}</p>
+          <p>Firestore: {db ? 'Connected' : 'Error'}</p>
           <p>Cloudflare Worker: {workerStatus}</p>
         </div>
-
       </footer>
 
-      {activeGame && <GameModal game={activeGame} onClose={() => setActiveGame(null)} />}
+      {activeGame && (
+        <GameModal
+          game={activeGame}
+          onClose={() => setActiveGame(null)}
+        />
+      )}
 
       {authMode && (
         <AuthModal
-          initialMode={authMode}
           onClose={() => setAuthMode(null)}
-          onSuccess={(u) => {
-            setUser(u)
+          onSuccess={(registeredUser) => {
+            setUser(registeredUser)
             setAuthMode(null)
           }}
         />
