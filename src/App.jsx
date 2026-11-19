@@ -1,11 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import AuthModal from './AuthModal'
 import { getSession, logout } from './auth'
+import { useCatalog } from './useCatalog'
+import { getReviews } from './reviews'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
-import { useCatalog } from './useCatalog'
 
 const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
+
+function Stars({ value }) {
+  if (value == null) return <span className="stars">— no ratings yet</span>
+  const rounded = Math.round(value)
+  return (
+    <span className="stars">
+      {'★'.repeat(rounded)}
+      {'☆'.repeat(5 - rounded)} ({value.toFixed(1)})
+    </span>
+  )
+}
 
 function Card({ item, onPlay }) {
   return (
@@ -21,42 +33,41 @@ function Card({ item, onPlay }) {
         <h3>{item.title}</h3>
         <p>{item.description}</p>
         <span className="tag">{item.category}</span>
+        <Stars value={item.rating} />
       </div>
     </article>
   )
 }
 
 function GameModal({ game, onClose }) {
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="game-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="btn btn-ghost btn-sm game-close" onClick={onClose}>
-          ✕
-        </button>
-        <h2>{game.title}</h2>
-        <p className="game-meta">{game.developer} · {game.category}</p>
-        <FlashPlayer src={game.fileUrl} />
-        <p>{game.description}</p>
-        {game.thumbnails.length > 0 && (
-          <div className="thumbs">
-            {game.thumbnails.map((t) => (
-              <img key={t} src={t} alt="" loading="lazy" />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  )
+  const [reviews, setReviews] = useState([])
+  const [loadingReviews, setLoadingReviews] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoadingReviews(true)
+    getReviews(game.id)
+      .then((r) => !cancelled && setReviews(r))
+      .catch((err) => console.error('Reviews load error:', err))
+      .finally(() => !cancelled && setLoadingReviews(false))
+    return () => { cancelled = true }
+  }, [game.id])
+
 }
 
 function App() {
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState('all') // id категории или 'all'
+  const [category, setCategory] = useState('all')
   const [user, setUser] = useState(getSession)
   const [authMode, setAuthMode] = useState(null)
   const [activeGame, setActiveGame] = useState(null)
 
-  const { games, categories, loading, error } = useCatalog()
+  const { games: loadedGames, categories, loading, error } = useCatalog()
+  const [games, setGames] = useState([])
+
+  useEffect(() => {
+    setGames(loadedGames)
+  }, [loadedGames])
 
   const handleLogout = () => {
     logout()
@@ -80,13 +91,19 @@ function App() {
     async function checkWorker() {
       try {
         const response = await fetch(WORKER_URL)
-        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`)
-        setWorkerStatus(await response.text())
+
+        if (!response.ok) {
+          throw new Error(`HTTP Error: ${response.status}`)
+        }
+
+        const result = await response.text()
+        setWorkerStatus(result)
       } catch (error) {
         console.error('Worker connection error:', error)
         setWorkerStatus('Connection failed')
       }
     }
+
     checkWorker()
   }, [])
 
@@ -101,26 +118,26 @@ function App() {
           <input
             className="search"
             type="search"
-            placeholder="Caută un joc..."
+            placeholder="Search for a game..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label="Caută un joc"
+            aria-label="Search for a game"
           />
           <div className="header-actions">
             {user ? (
               <>
                 <span className="user-chip">👤 {user.username}</span>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-                  Ieși
+                  Log out
                 </button>
               </>
             ) : (
               <>
                 <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
-                  Intră
+                  Log in
                 </button>
                 <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
-                  Cont nou
+                  Sign up
                 </button>
               </>
             )}
@@ -131,22 +148,24 @@ function App() {
       <main>
         <section className="hero container">
           <h1>
-            Jocurile Flash <span>nu au murit.</span>
+            Flash games <span>aren&apos;t dead.</span>
           </h1>
           <p>
             {user
-              ? `Bine ai revenit, ${user.username}! Apasă START.`
-              : 'Joacă clasicele tale preferate direct în browser. Apasă START.'}
+              ? `Welcome back, ${user.username}! Press START.`
+              : 'Play your favorite classics right in your browser. Press START.'}
           </p>
           <div className="hero-actions">
-            <a className="btn" href="#jocuri">▶ Start</a>
+            <a className="btn" href="#jocuri">
+              ▶ Start
+            </a>
           </div>
         </section>
 
         <section className="container" id="jocuri">
           <div className="section-head">
-            <h2>Toate jocurile</h2>
-            <div className="chips" role="tablist" aria-label="Categorii">
+            <h2>All games</h2>
+            <div className="chips" role="tablist" aria-label="Categories">
               <button
                 type="button"
                 role="tab"
@@ -154,7 +173,7 @@ function App() {
                 className={`chip ${category === 'all' ? 'active' : ''}`}
                 onClick={() => setCategory('all')}
               >
-                Toate
+                All
               </button>
               {categories.map((c) => (
                 <button
@@ -173,19 +192,20 @@ function App() {
 
           <div className="grid">
             {loading ? (
-              <p className="empty">Se încarcă...</p>
+              <p className="empty">Loading...</p>
             ) : error ? (
-              <p className="empty">Eroare la încărcarea jocurilor.</p>
+              <p className="empty">Error loading games.</p>
             ) : filtered.length ? (
               filtered.map((g) => <Card key={g.id} item={g} onPlay={setActiveGame} />)
             ) : (
-              <p className="empty">Nimic găsit. Încearcă altă căutare sau altă categorie.</p>
+              <p className="empty">Nothing found. Try another search or category.</p>
             )}
           </div>
         </section>
       </main>
 
       <footer className="footer">
+
         <div className="container">Flashback</div>
         <div>
           <p>Temporary</p>
@@ -194,6 +214,7 @@ function App() {
           <p>Firestore: {db ? "Connected" : "Error"}</p>
           <p>Cloudflare Worker: {workerStatus}</p>
         </div>
+
       </footer>
 
       {activeGame && <GameModal game={activeGame} onClose={() => setActiveGame(null)} />}
