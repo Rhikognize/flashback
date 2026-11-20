@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import AuthModal from './AuthModal'
-import { getSession, logout } from './auth'
+import { subscribeAuth, logout } from './auth'
 import { useCatalog } from './useCatalog'
-import { getReviews } from './reviews'
+import { getReviews, submitReview } from './reviews'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
 
@@ -39,9 +39,13 @@ function Card({ item, onPlay }) {
   )
 }
 
-function GameModal({ game, onClose }) {
+function GameModal({ game, user, onClose, onRatingChange }) {
   const [reviews, setReviews] = useState([])
   const [loadingReviews, setLoadingReviews] = useState(true)
+  const [myRating, setMyRating] = useState(5)
+  const [myComment, setMyComment] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -53,14 +57,45 @@ function GameModal({ game, onClose }) {
     return () => { cancelled = true }
   }, [game.id])
 
+  const submit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      const avg = await submitReview(game.id, {
+        userId: user.id,
+        rating: Number(myRating),
+        comment: myComment,
+      })
+      setReviews((rs) => [
+        ...rs.filter((r) => r.IdUser !== user.id),
+        { IdUser: user.id, Rating: Number(myRating), Comment: myComment },
+      ])
+      onRatingChange?.(game.id, avg)
+      setMyComment('')
+    } catch (err) {
+      setError(err.message || 'Something went wrong.')
+    } finally {
+      setBusy(false)
+    }
+  }
 }
 
 function App() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
-  const [user, setUser] = useState(getSession)
+  const [user, setUser] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
   const [authMode, setAuthMode] = useState(null)
   const [activeGame, setActiveGame] = useState(null)
+
+  useEffect(() => {
+    const unsubscribe = subscribeAuth((u) => {
+      setUser(u)
+      setAuthLoading(false)
+    })
+    return unsubscribe
+  }, [])
 
   const { games: loadedGames, categories, loading, error } = useCatalog()
   const [games, setGames] = useState([])
@@ -69,9 +104,13 @@ function App() {
     setGames(loadedGames)
   }, [loadedGames])
 
-  const handleLogout = () => {
-    logout()
-    setUser(null)
+  const handleLogout = async () => {
+    await logout()
+  }
+
+  const handleRatingChange = (gameId, rating) => {
+    setGames((gs) => gs.map((g) => (g.id === gameId ? { ...g, rating } : g)))
+    setActiveGame((g) => (g && g.id === gameId ? { ...g, rating } : g))
   }
 
   const filtered = useMemo(() => {
@@ -110,40 +149,45 @@ function App() {
   return (
     <>
       <header className="header">
-        <div className="container header-inner">
-          <a className="logo" href="/">
-            <span className="logo-mark" aria-hidden="true">🕹️</span>
-            Flashback
-          </a>
-          <input
-            className="search"
-            type="search"
-            placeholder="Search for a game..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search for a game"
-          />
-          <div className="header-actions">
-            {user ? (
-              <>
-                <span className="user-chip">👤 {user.username}</span>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-                  Log out
-                </button>
-              </>
-            ) : (
-              <>
-                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
-                  Log in
-                </button>
-                <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
-                  Sign up
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+  <div className="container header-inner">
+    <a className="logo" href="/">
+      <span className="logo-mark" aria-hidden="true">🕹️</span>
+      Flashback
+    </a>
+    <input
+      className="search"
+      type="search"
+      placeholder="Search for a game..."
+      value={query}
+      onChange={(e) => setQuery(e.target.value)}
+      aria-label="Search for a game"
+    />
+    <div className="header-actions">
+      {authLoading ? (
+        <span className="auth-skeleton" aria-hidden="true" />
+      ) : user ? (
+        <>
+          <span className="user-chip">
+            👤 {user.username}
+            {user.role === 'Admin' && <span className="tag admin-tag">Admin</span>}
+          </span>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
+            Log out
+          </button>
+        </>
+      ) : (
+        <>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
+            Log in
+          </button>
+          <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
+            Sign up
+          </button>
+        </>
+      )}
+    </div>
+  </div>
+</header>
 
       <main>
         <section className="hero container">
@@ -151,10 +195,12 @@ function App() {
             Flash games <span>aren&apos;t dead.</span>
           </h1>
           <p>
-            {user
-              ? `Welcome back, ${user.username}! Press START.`
-              : 'Play your favorite classics right in your browser. Press START.'}
-          </p>
+  {authLoading
+    ? '\u00A0'
+    : user
+      ? `Welcome back, ${user.username}! Press START.`
+      : 'Play your favorite classics right in your browser. Press START.'}
+</p>
           <div className="hero-actions">
             <a className="btn" href="#jocuri">
               ▶ Start
@@ -217,7 +263,14 @@ function App() {
 
       </footer>
 
-      {activeGame && <GameModal game={activeGame} onClose={() => setActiveGame(null)} />}
+      {activeGame && (
+        <GameModal
+          game={activeGame}
+          user={user}
+          onClose={() => setActiveGame(null)}
+          onRatingChange={handleRatingChange}
+        />
+      )}
 
       {authMode && (
         <AuthModal
