@@ -4,8 +4,10 @@ import { subscribeAuth, logout } from './auth'
 import { useCatalog } from './useCatalog'
 import { getReviews, submitReview } from './reviews'
 import { getUserProfile } from './userProfiles'
+import logoImg from './assets/pixil-frame-1.png'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
+import AdminPanel from './admin/AdminPanel'
 
 const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
 
@@ -210,6 +212,7 @@ function App() {
   const [authLoading, setAuthLoading] = useState(true)
   const [authMode, setAuthMode] = useState(null)
   const [activeGame, setActiveGame] = useState(null)
+  const [showAdmin, setShowAdmin] = useState(false)
 
   useEffect(() => {
     const unsubscribe = subscribeAuth((u) => {
@@ -219,7 +222,7 @@ function App() {
     return unsubscribe
   }, [])
 
-  const { games: loadedGames, categories, loading, error } = useCatalog()
+  const { games: loadedGames, categories, loading, error, refetch } = useCatalog()
   const [games, setGames] = useState([])
 
   useEffect(() => {
@@ -277,7 +280,12 @@ function App() {
       <header className="header">
         <div className="container header-inner">
           <a className="logo" href="/">
-            <span className="logo-mark" aria-hidden="true">🕹️</span>
+            <img
+              src={logoImg}
+              alt=""
+              className="logo-mark"
+              aria-hidden="true"
+            />
             Flashback
           </a>
           <input
@@ -298,6 +306,11 @@ function App() {
                   <span className="username">{user.username}</span>
                   <span className={`role-badge ${user.role?.toLowerCase()}`}>{user.role}</span>
                 </span>
+                {user.role === 'Admin' && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAdmin(true)}>
+                    Admin
+                  </button>
+                )}
                 <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
                   Log out
                 </button>
@@ -396,6 +409,8 @@ function App() {
           onRatingChange={handleRatingChange}
         />
       )}
+
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} onDataChange={refetch} />}
 
       {authMode && (
         <AuthModal

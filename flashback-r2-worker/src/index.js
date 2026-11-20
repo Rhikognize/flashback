@@ -8,10 +8,15 @@ function getCors(request) {
   const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allowed,
-    "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Methods": "GET, HEAD, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Key",
     "Vary": "Origin",
   };
+}
+
+function isAdmin(request, env) {
+  const key = request.headers.get("X-Admin-Key");
+  return Boolean(key) && Boolean(env.ADMIN_KEY) && key === env.ADMIN_KEY;
 }
 
 export default {
@@ -49,11 +54,47 @@ export default {
 
       return new Response(request.method === "HEAD" ? null : object.body, { headers });
     }
+
     if (request.method === "GET" && url.pathname.startsWith("/list/")) {
       const prefix = decodeURIComponent(url.pathname.substring("/list/".length));
       const listed = await env.FLASHBACK_BUCKET.list({ prefix });
       const keys = listed.objects.map((o) => o.key);
       return new Response(JSON.stringify(keys), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (request.method === "PUT" && url.pathname.startsWith("/files/")) {
+      if (!isAdmin(request, env)) {
+        return new Response("Forbidden", { status: 403, headers: corsHeaders });
+      }
+      const fileKey = decodeURIComponent(url.pathname.substring("/files/".length));
+      const contentType = request.headers.get("Content-Type") || "application/octet-stream";
+      await env.FLASHBACK_BUCKET.put(fileKey, request.body, { httpMetadata: { contentType } });
+      return new Response(JSON.stringify({ key: fileKey }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (request.method === "DELETE" && url.pathname.startsWith("/files/")) {
+      if (!isAdmin(request, env)) {
+        return new Response("Forbidden", { status: 403, headers: corsHeaders });
+      }
+      const fileKey = decodeURIComponent(url.pathname.substring("/files/".length));
+      await env.FLASHBACK_BUCKET.delete(fileKey);
+      return new Response(JSON.stringify({ deleted: fileKey }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (request.method === "DELETE" && url.pathname.startsWith("/prefix/")) {
+      if (!isAdmin(request, env)) {
+        return new Response("Forbidden", { status: 403, headers: corsHeaders });
+      }
+      const prefix = decodeURIComponent(url.pathname.substring("/prefix/".length));
+      const listed = await env.FLASHBACK_BUCKET.list({ prefix });
+      await Promise.all(listed.objects.map((o) => env.FLASHBACK_BUCKET.delete(o.key)));
+      return new Response(JSON.stringify({ deleted: listed.objects.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
