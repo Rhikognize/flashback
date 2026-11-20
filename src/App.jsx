@@ -3,6 +3,7 @@ import AuthModal from './AuthModal'
 import { subscribeAuth, logout } from './auth'
 import { useCatalog } from './useCatalog'
 import { getReviews, submitReview } from './reviews'
+import { getUserProfile } from './userProfiles'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
 
@@ -21,7 +22,7 @@ function Stars({ value }) {
 
 function Card({ item, onPlay }) {
   return (
-    <article className="card" style={{ cursor: 'pointer' }}>
+    <article className="card" onClick={() => onPlay(item)} style={{ cursor: 'pointer' }}>
       <div className="thumb">
         {item.iconUrl ? (
           <img src={item.iconUrl} alt={item.title} loading="lazy" />
@@ -36,6 +37,169 @@ function Card({ item, onPlay }) {
         <Stars value={item.rating} />
       </div>
     </article>
+  )
+}
+
+function ReviewItem({ review, profile }) {
+  const rating = review.Rating
+  return (
+    <li className="review-item">
+      <div className="review-header">
+        <div className="review-avatar">
+          {profile?.avatarUrl ? (
+            <img src={profile.avatarUrl} alt={profile.name} loading="lazy" />
+          ) : (
+            <span aria-hidden="true">👤</span>
+          )}
+        </div>
+        <div className="review-author">
+          <span className="review-name">{profile?.name ?? 'Loading...'}</span>
+          <span className="review-stars">
+            {'★'.repeat(rating)}
+            {'☆'.repeat(5 - rating)}
+          </span>
+        </div>
+      </div>
+      <p className="review-comment">{review.Comment}</p>
+    </li>
+  )
+}
+
+function GameModal({ game, user, onClose, onRatingChange }) {
+  const [reviews, setReviews] = useState([])
+  const [profiles, setProfiles] = useState({})
+  const [loadingReviews, setLoadingReviews] = useState(true)
+  const [myRating, setMyRating] = useState(5)
+  const [myComment, setMyComment] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoadingReviews(true)
+    getReviews(game.id)
+      .then(async (r) => {
+        if (cancelled) return
+        setReviews(r)
+        const uniqueIds = [...new Set(r.map((rv) => rv.IdUser))]
+        const entries = await Promise.all(
+          uniqueIds.map(async (uid) => [uid, await getUserProfile(uid)]),
+        )
+        if (!cancelled) setProfiles(Object.fromEntries(entries))
+      })
+      .catch((err) => console.error('Reviews load error:', err))
+      .finally(() => !cancelled && setLoadingReviews(false))
+    return () => { cancelled = true }
+  }, [game.id])
+
+  const submit = async (e) => {
+    e.preventDefault()
+    setError('')
+    setBusy(true)
+    try {
+      const avg = await submitReview(game.id, {
+        userId: user.id,
+        rating: Number(myRating),
+        comment: myComment,
+      })
+      const newReview = { IdUser: user.id, Rating: Number(myRating), Comment: myComment }
+      setReviews((rs) => [...rs.filter((r) => r.IdUser !== user.id), newReview])
+      setProfiles((p) => ({
+        ...p,
+        [user.id]: { name: user.username, avatarUrl: p[user.id]?.avatarUrl ?? null },
+      }))
+      onRatingChange?.(game.id, avg)
+      setMyComment('')
+    } catch (err) {
+      setError(err.message || 'Something went wrong.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="game-modal" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="btn btn-ghost btn-sm game-close" onClick={onClose} aria-label="Close">
+          ✕
+        </button>
+
+        <div className="game-modal-head">
+          {game.iconUrl && <img className="game-modal-icon" src={game.iconUrl} alt="" />}
+          <div>
+            <h2>{game.title}</h2>
+            <p className="game-meta">
+              <span className="tag">{game.category}</span> <Stars value={game.rating} />
+            </p>
+          </div>
+        </div>
+
+        <p className="game-description">{game.description}</p>
+
+        {game.tags.length > 0 && (
+          <div className="chips">
+            {game.tags.map((t) => (
+              <span key={t} className="tag">{t}</span>
+            ))}
+          </div>
+        )}
+
+        {game.thumbnails.length > 0 && (
+          <div className="thumbs">
+            {game.thumbnails.map((t) => (
+              <img key={t} src={t} alt="" loading="lazy" />
+            ))}
+          </div>
+        )}
+
+        <div className="player-placeholder">
+          <span aria-hidden="true">▶</span>
+          <p>Player coming soon</p>
+        </div>
+
+        <h3>Reviews</h3>
+        {loadingReviews ? (
+          <p>Loading...</p>
+        ) : reviews.length === 0 ? (
+          <p>No reviews yet.</p>
+        ) : (
+          <ul className="review-list">
+            {reviews.map((r) => (
+              <ReviewItem key={r.id ?? r.IdUser} review={r} profile={profiles[r.IdUser]} />
+            ))}
+          </ul>
+        )}
+
+        {user ? (
+          <form className="review-form" onSubmit={submit}>
+            <label>
+              Rating
+              <select value={myRating} onChange={(e) => setMyRating(e.target.value)}>
+                {[5, 4, 3, 2, 1].map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+            </label>
+            <textarea
+              value={myComment}
+              onChange={(e) => setMyComment(e.target.value)}
+              placeholder="Your comment..."
+              required
+            />
+            {error && (
+              <p className="form-error" role="alert">
+                ! {error}
+              </p>
+            )}
+            <button type="submit" className="btn btn-sm" disabled={busy}>
+              {busy ? 'Submitting...' : 'Submit review'}
+            </button>
+          </form>
+        ) : (
+          <p className="hint">Log in to leave a review.</p>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -129,40 +293,21 @@ function App() {
               <span className="user-chip">Loading...</span>
             ) : user ? (
               <>
-                <>
-                  <span className="user-chip">
-                    <span className="user-icon">👤</span>
-                    <span className="username">{user.username}</span>
-
-                    <span className={`role-badge ${user.role?.toLowerCase()}`}>
-                      {user.role}
-                    </span>
-                  </span>
-
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm"
-                    onClick={handleLogout}
-                  >
-                    Log out
-                  </button>
-                </>
+                <span className="user-chip">
+                  <span className="user-icon">👤</span>
+                  <span className="username">{user.username}</span>
+                  <span className={`role-badge ${user.role?.toLowerCase()}`}>{user.role}</span>
+                </span>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
+                  Log out
+                </button>
               </>
             ) : (
               <>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setAuthMode('login')}
-                >
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
                   Log in
                 </button>
-
-                <button
-                  type="button"
-                  className="btn btn-sm"
-                  onClick={() => setAuthMode('register')}
-                >
+                <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
                   Sign up
                 </button>
               </>
@@ -233,7 +378,6 @@ function App() {
       </main>
 
       <footer className="footer">
-
         <div className="container">Flashback</div>
         <div>
           <p>Temporary</p>
@@ -242,7 +386,6 @@ function App() {
           <p>Firestore: {db ? "Connected" : "Error"}</p>
           <p>Cloudflare Worker: {workerStatus}</p>
         </div>
-
       </footer>
 
       {activeGame && (
