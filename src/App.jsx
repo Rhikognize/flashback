@@ -21,7 +21,7 @@ function Stars({ value }) {
 
 function Card({ item, onPlay }) {
   return (
-    <article className="card" onClick={() => onPlay(item)} style={{ cursor: 'pointer' }}>
+    <article className="card" style={{ cursor: 'pointer' }}>
       <div className="thumb">
         {item.iconUrl ? (
           <img src={item.iconUrl} alt={item.title} loading="lazy" />
@@ -37,48 +37,6 @@ function Card({ item, onPlay }) {
       </div>
     </article>
   )
-}
-
-function GameModal({ game, user, onClose, onRatingChange }) {
-  const [reviews, setReviews] = useState([])
-  const [loadingReviews, setLoadingReviews] = useState(true)
-  const [myRating, setMyRating] = useState(5)
-  const [myComment, setMyComment] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-    setLoadingReviews(true)
-    getReviews(game.id)
-      .then((r) => !cancelled && setReviews(r))
-      .catch((err) => console.error('Reviews load error:', err))
-      .finally(() => !cancelled && setLoadingReviews(false))
-    return () => { cancelled = true }
-  }, [game.id])
-
-  const submit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setBusy(true)
-    try {
-      const avg = await submitReview(game.id, {
-        userId: user.id,
-        rating: Number(myRating),
-        comment: myComment,
-      })
-      setReviews((rs) => [
-        ...rs.filter((r) => r.IdUser !== user.id),
-        { IdUser: user.id, Rating: Number(myRating), Comment: myComment },
-      ])
-      onRatingChange?.(game.id, avg)
-      setMyComment('')
-    } catch (err) {
-      setError(err.message || 'Something went wrong.')
-    } finally {
-      setBusy(false)
-    }
-  }
 }
 
 function App() {
@@ -105,7 +63,11 @@ function App() {
   }, [loadedGames])
 
   const handleLogout = async () => {
-    await logout()
+    try {
+      await logout()
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
   }
 
   const handleRatingChange = (gameId, rating) => {
@@ -149,45 +111,65 @@ function App() {
   return (
     <>
       <header className="header">
-  <div className="container header-inner">
-    <a className="logo" href="/">
-      <span className="logo-mark" aria-hidden="true">🕹️</span>
-      Flashback
-    </a>
-    <input
-      className="search"
-      type="search"
-      placeholder="Search for a game..."
-      value={query}
-      onChange={(e) => setQuery(e.target.value)}
-      aria-label="Search for a game"
-    />
-    <div className="header-actions">
-      {authLoading ? (
-        <span className="auth-skeleton" aria-hidden="true" />
-      ) : user ? (
-        <>
-          <span className="user-chip">
-            👤 {user.username}
-            {user.role === 'Admin' && <span className="tag admin-tag">Admin</span>}
-          </span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
-            Log out
-          </button>
-        </>
-      ) : (
-        <>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setAuthMode('login')}>
-            Log in
-          </button>
-          <button type="button" className="btn btn-sm" onClick={() => setAuthMode('register')}>
-            Sign up
-          </button>
-        </>
-      )}
-    </div>
-  </div>
-</header>
+        <div className="container header-inner">
+          <a className="logo" href="/">
+            <span className="logo-mark" aria-hidden="true">🕹️</span>
+            Flashback
+          </a>
+          <input
+            className="search"
+            type="search"
+            placeholder="Search for a game..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            aria-label="Search for a game"
+          />
+          <div className="header-actions">
+            {authLoading ? (
+              <span className="user-chip">Loading...</span>
+            ) : user ? (
+              <>
+                <>
+                  <span className="user-chip">
+                    <span className="user-icon">👤</span>
+                    <span className="username">{user.username}</span>
+
+                    <span className={`role-badge ${user.role?.toLowerCase()}`}>
+                      {user.role}
+                    </span>
+                  </span>
+
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={handleLogout}
+                  >
+                    Log out
+                  </button>
+                </>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setAuthMode('login')}
+                >
+                  Log in
+                </button>
+
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => setAuthMode('register')}
+                >
+                  Sign up
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
 
       <main>
         <section className="hero container">
@@ -195,12 +177,12 @@ function App() {
             Flash games <span>aren&apos;t dead.</span>
           </h1>
           <p>
-  {authLoading
-    ? '\u00A0'
-    : user
-      ? `Welcome back, ${user.username}! Press START.`
-      : 'Play your favorite classics right in your browser. Press START.'}
-</p>
+            {authLoading
+              ? '\u00A0'
+              : user
+                ? `Welcome back, ${user.username}! Press START.`
+                : 'Play your favorite classics right in your browser. Press START.'}
+          </p>
           <div className="hero-actions">
             <a className="btn" href="#jocuri">
               ▶ Start
