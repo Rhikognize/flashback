@@ -4,6 +4,7 @@ import { subscribeAuth, logout } from './auth'
 import { useCatalog } from './useCatalog'
 import { getReviews, submitReview } from './reviews'
 import { getUserProfile } from './userProfiles'
+import logoImg from './assets/pixil-frame-0.png'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
 
@@ -277,7 +278,12 @@ function App() {
       <header className="header">
         <div className="container header-inner">
           <a className="logo" href="/">
-            <span className="logo-mark" aria-hidden="true">🕹️</span>
+            <img
+              src={logoImg}
+              alt=""
+              className="logo-mark"
+              aria-hidden="true"
+            />
             Flashback
           </a>
           <input
