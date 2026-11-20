@@ -4,7 +4,7 @@ import { subscribeAuth, logout } from './auth'
 import { useCatalog } from './useCatalog'
 import { getReviews, submitReview } from './reviews'
 import { getUserProfile } from './userProfiles'
-import logoImg from './assets/pixil-frame-0.png'
+import logoImg from './assets/pixil-frame-1.png'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
 
