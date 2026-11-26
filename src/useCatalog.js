@@ -21,6 +21,7 @@ export function useCatalog() {
       const games = await Promise.all(
         gSnap.docs.map(async (d) => {
           const g = d.data()
+          const missing = ['Title', 'CreatedAt', 'Rating', 'Views', 'Launches'].filter((f) => g[f] === undefined)
           const thumbKeys = await r2List(`games/${d.id}/Thumbnails/`)
           return {
             id: d.id,
@@ -30,6 +31,10 @@ export function useCatalog() {
             category: catNames[g.IdCategory] ?? '—',
             tags: Array.isArray(g.Tags) ? g.Tags : [],
             rating: typeof g.Rating === 'number' ? g.Rating : null,
+            views: typeof g.Views === 'number' ? g.Views : 0,
+            launches: typeof g.Launches === 'number' ? g.Launches : 0,
+            missing,
+            createdAt: typeof g.CreatedAt?.toMillis === 'function' ? g.CreatedAt.toMillis() : 0,
             fileUrl: r2Url(`games/${d.id}/file.swf`),
             iconUrl: r2Url(`games/${d.id}/icon.png`),
             thumbnails: thumbKeys.map(r2Url),

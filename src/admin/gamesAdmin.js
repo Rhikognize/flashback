@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
+import { collection, doc, getDocs, setDoc, deleteDoc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore'
 import { db } from '../firebase/firebase'
 import { r2Upload, r2DeletePrefix } from '../r2'
 
@@ -57,8 +57,26 @@ export async function createGame({ data, files }, onProgress) {
     IdCategory: data.categoryId,
     Tags: data.tags,
     Rating: null,
+    Views: 0,
+    Launches: 0,
+    CreatedAt: serverTimestamp(),
   })
   return id
+}
+
+export async function backfillGameFields(games) {
+  const now = Timestamp.now()
+  const missing = games.filter((g) => g.CreatedAt == null || typeof g.Views !== 'number' || typeof g.Launches !== 'number')
+  await Promise.all(
+    missing.map((g) => {
+      const patch = {}
+      if (g.CreatedAt == null) patch.CreatedAt = now
+      if (typeof g.Views !== 'number') patch.Views = 0
+      if (typeof g.Launches !== 'number') patch.Launches = 0
+      return updateDoc(doc(db, 'games', g.id), patch)
+    }),
+  )
+  return missing.length
 }
 
 export async function updateGame(id, { data, files }, onProgress) {

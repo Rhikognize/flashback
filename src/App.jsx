@@ -10,6 +10,9 @@ import { auth, db } from "./firebase/firebase";
 import AdminPanel from './admin/AdminPanel'
 import ConfirmDialog from './admin/ConfirmDialog'
 import RufflePlayer from './RufflePlayer'
+import Dropdown from './Dropdown'
+import { registerView, registerLaunch } from './views'
+import { backfillField, SORT_FIELD } from './backfill'
 
 const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
 
@@ -42,6 +45,51 @@ function Stars({ value }) {
   )
 }
 
+const SORT_OPTIONS = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'oldest', label: 'Oldest first' },
+  { value: 'az', label: 'Title A → Z' },
+  { value: 'za', label: 'Title Z → A' },
+  { value: 'rating-desc', label: 'Rating: high → low' },
+  { value: 'rating-asc', label: 'Rating: low → high' },
+  { value: 'views-desc', label: 'Views: most first' },
+  { value: 'views-asc', label: 'Views: least first' },
+  { value: 'launches-desc', label: 'Launches: most first' },
+  { value: 'launches-asc', label: 'Launches: least first' },
+]
+
+const byRating = (dir) => (a, b) => {
+  if (a.rating == null && b.rating == null) return 0
+  if (a.rating == null) return 1
+  if (b.rating == null) return -1
+  return dir * (a.rating - b.rating)
+}
+
+const COMPARATORS = {
+  newest: (a, b) => b.createdAt - a.createdAt,
+  oldest: (a, b) => a.createdAt - b.createdAt,
+  az: (a, b) => (a.title ?? '').localeCompare(b.title ?? ''),
+  za: (a, b) => (b.title ?? '').localeCompare(a.title ?? ''),
+  'rating-desc': byRating(-1),
+  'rating-asc': byRating(1),
+  'views-desc': (a, b) => b.views - a.views,
+  'views-asc': (a, b) => a.views - b.views,
+  'launches-desc': (a, b) => b.launches - a.launches,
+  'launches-asc': (a, b) => a.launches - b.launches,
+}
+
+const EyeIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
+  </svg>
+)
+
+const PlayIcon = () => (
+  <svg viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M8 5v14l11-7z" />
+  </svg>
+)
+
 function Card({ item, onPlay }) {
   return (
     <article className="card" onClick={() => onPlay(item)} style={{ cursor: 'pointer' }}>
@@ -57,6 +105,14 @@ function Card({ item, onPlay }) {
         <p>{item.description}</p>
         <span className="tag">{item.category}</span>
         <Stars value={item.rating} />
+        <div className="card-stats">
+          <span className="stat" title="Views">
+            <EyeIcon /> {item.views}
+          </span>
+          <span className="stat" title="Launches">
+            <PlayIcon /> {item.launches}
+          </span>
+        </div>
       </div>
     </article>
   )
@@ -187,7 +243,7 @@ function ReviewItem({ review, profile, isOwn, busy, onSave, onRequestDelete }) {
   )
 }
 
-function GameModal({ game, user, onClose, onRatingChange }) {
+function GameModal({ game, user, onClose, onRatingChange, onLaunch }) {
   const [reviews, setReviews] = useState([])
   const [profiles, setProfiles] = useState({})
   const [loadingReviews, setLoadingReviews] = useState(true)
@@ -325,7 +381,7 @@ function GameModal({ game, user, onClose, onRatingChange }) {
             </div>
           )}
 
-          <RufflePlayer key={game.id} url={game.fileUrl} />
+          <RufflePlayer key={game.id} url={game.fileUrl} onLaunch={() => onLaunch?.(game.id)} />
 
           <h3>Leave a review</h3>
           {!user ? (
@@ -399,6 +455,7 @@ function GameModal({ game, user, onClose, onRatingChange }) {
 function App() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('all')
+  const [sort, setSort] = useState('newest')
   const [user, setUser] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [authMode, setAuthMode] = useState(null)
@@ -433,16 +490,64 @@ function App() {
     setActiveGame((g) => (g && g.id === gameId ? { ...g, rating } : g))
   }
 
+  const handlePlay = (game) => {
+    setActiveGame(game)
+    // counted once per game per session; update the local list so the sort by views stays current
+    if (registerView(game.id)) {
+      setGames((gs) => gs.map((g) => (g.id === game.id ? { ...g, views: g.views + 1 } : g)))
+    }
+  }
+
+  const handleLaunch = (gameId) => {
+    registerLaunch(gameId)
+    setGames((gs) => gs.map((g) => (g.id === gameId ? { ...g, launches: g.launches + 1 } : g)))
+  }
+
+  const backfillBusy = useRef(new Set())
+  useEffect(() => {
+    const field = SORT_FIELD[sort]
+    if (!field || user?.role !== 'Admin' || loading) return
+    const ids = games.filter((g) => g.missing?.includes(field)).map((g) => g.id)
+    if (!ids.length || backfillBusy.current.has(field)) return
+    backfillBusy.current.add(field)
+    backfillField(ids, field)
+      .then((patch) => {
+        const done = new Set(ids)
+        setGames((gs) => gs.map((g) => (done.has(g.id) ? patch(g) : g)))
+        backfillBusy.current.delete(field)
+      })
+      .catch((err) => console.error(`Backfill ${field} error:`, err))
+  }, [sort, games, user, loading])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return games.filter(
-      (g) =>
-        (category === 'all' || g.categoryId === category) &&
-        (!q ||
-          g.title?.toLowerCase().includes(q) ||
-          g.description?.toLowerCase().includes(q)),
-    )
-  }, [games, query, category])
+    const compare = COMPARATORS[sort] ?? COMPARATORS.newest
+    return games
+      .filter(
+        (g) =>
+          (category === 'all' || g.categoryId === category) &&
+          (!q ||
+            g.title?.toLowerCase().includes(q) ||
+            g.description?.toLowerCase().includes(q)),
+      )
+      .sort((a, b) => compare(a, b) || (a.title ?? '').localeCompare(b.title ?? ''))
+  }, [games, query, category, sort])
+
+  const categoryOptions = useMemo(
+    () => [{ value: 'all', label: 'All categories' }, ...categories.map((c) => ({ value: c.id, label: c.name }))],
+    [categories],
+  )
+
+  const headerRef = useRef(null)
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const update = () => document.documentElement.style.setProperty('--header-h', `${el.offsetHeight}px`)
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   const [workerStatus, setWorkerStatus] = useState('Checking...')
 
@@ -468,7 +573,7 @@ function App() {
 
   return (
     <>
-      <header className="header">
+      <header className="header" ref={headerRef}>
         <div className="container header-inner">
           <a className="logo" href="/">
             <img
@@ -479,14 +584,6 @@ function App() {
             />
             Flashback
           </a>
-          <input
-            className="search"
-            type="search"
-            placeholder="Search for a game..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search for a game"
-          />
           <div className="header-actions">
             {authLoading ? (
               <span className="user-chip">Loading...</span>
@@ -542,29 +639,29 @@ function App() {
         <section className="container" id="jocuri">
           <div className="section-head">
             <h2>All games</h2>
-            <div className="chips" role="tablist" aria-label="Categories">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={category === 'all'}
-                className={`chip ${category === 'all' ? 'active' : ''}`}
-                onClick={() => setCategory('all')}
-              >
-                All
-              </button>
-              {categories.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={category === c.id}
-                  className={`chip ${category === c.id ? 'active' : ''}`}
-                  onClick={() => setCategory(c.id)}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
+            <input
+              className="search"
+              type="search"
+              placeholder="Search for a game..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search for a game"
+            />
+            <Dropdown
+              className="filter-select"
+              options={categoryOptions}
+              value={category}
+              onChange={setCategory}
+              ariaLabel="Filter by category"
+            />
+            <Dropdown
+              className="sort-select"
+              options={SORT_OPTIONS}
+              value={sort}
+              onChange={setSort}
+              ariaLabel="Sort games"
+              align="right"
+            />
           </div>
 
           <div className="grid">
@@ -573,7 +670,7 @@ function App() {
             ) : error ? (
               <p className="empty">Error loading games.</p>
             ) : filtered.length ? (
-              filtered.map((g) => <Card key={g.id} item={g} onPlay={setActiveGame} />)
+              filtered.map((g) => <Card key={g.id} item={g} onPlay={handlePlay} />)
             ) : (
               <p className="empty">Nothing found. Try another search or category.</p>
             )}
@@ -598,6 +695,7 @@ function App() {
           user={user}
           onClose={() => setActiveGame(null)}
           onRatingChange={handleRatingChange}
+          onLaunch={handleLaunch}
         />
       )}
 

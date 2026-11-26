@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import DropZone from './DropZone'
 import { useFilePreviews } from './useFilePreviews'
-import { listCategoriesAdmin, listGamesAdmin, createGame, updateGame, deleteGame } from './gamesAdmin'
+import { listCategoriesAdmin, listGamesAdmin, createGame, updateGame, deleteGame, backfillGameFields } from './gamesAdmin'
 import ConfirmDialog from './ConfirmDialog'
 import CategorySelect from './CategorySelect'
 
@@ -28,7 +28,17 @@ export default function AdminGames({ onDataChange }) {
 
     const reload = async () => {
         setLoading(true)
-        const [g, c] = await Promise.all([listGamesAdmin(), listCategoriesAdmin()])
+        let [g, c] = await Promise.all([listGamesAdmin(), listCategoriesAdmin()])
+        try {
+            const updated = await backfillGameFields(g)
+            if (updated) {
+                g = await listGamesAdmin()
+                await onDataChange?.()
+                setSuccess(`Added date and views to ${updated} existing game(s).`)
+            }
+        } catch (err) {
+            console.error('Backfill error:', err)
+        }
         setGames(g)
         setCategories(c)
         setLoading(false)
