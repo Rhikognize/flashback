@@ -9,6 +9,7 @@ import './App.css'
 import { auth, db } from "./firebase/firebase";
 import AdminPanel from './admin/AdminPanel'
 import ConfirmDialog from './admin/ConfirmDialog'
+import RufflePlayer from './RufflePlayer'
 
 const WORKER_URL = import.meta.env.VITE_R2_WORKER_URL;
 
@@ -319,10 +320,7 @@ function GameModal({ game, user, onClose, onRatingChange }) {
             </div>
           )}
 
-          <div className="player-placeholder">
-            <span aria-hidden="true">▶</span>
-            <p>Player coming soon</p>
-          </div>
+          <RufflePlayer key={game.id} url={game.fileUrl} />
 
           <h3>Leave a review</h3>
           {!user ? (
