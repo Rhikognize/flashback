@@ -1113,3 +1113,23 @@
   background: var(--red);
   transition: width 0.15s ease;
 }
+
+.category-edit-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.category-edit-form input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 2px solid var(--red-dark);
+  background: #0a0a0a;
+  color: #fff;
+}
+
+.category-edit-form input:focus {
+  outline: none;
+  border-color: var(--red);
+}
