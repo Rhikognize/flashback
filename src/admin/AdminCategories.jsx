@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { listCategoriesAdmin, createCategory, renameCategory, deleteCategory } from './categoriesAdmin'
 import ConfirmDialog from './ConfirmDialog'
 
@@ -13,6 +13,7 @@ export default function AdminCategories({ onDataChange }) {
     const [addSuccess, setAddSuccess] = useState('')
     const [listError, setListError] = useState('')
     const [categoryToDelete, setCategoryToDelete] = useState(null)
+    const [search, setSearch] = useState('')
 
     const reload = async () => {
         setLoading(true)
@@ -21,6 +22,12 @@ export default function AdminCategories({ onDataChange }) {
     }
 
     useEffect(() => { reload() }, [])
+
+    const visibleCategories = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        if (!q) return categories
+        return categories.filter((c) => c.name.toLowerCase().includes(q))
+    }, [categories, search])
 
     const nameTaken = (name, excludeId = null) =>
         categories.some((c) => c.id !== excludeId && c.name.toLowerCase() === name.toLowerCase())
@@ -145,12 +152,18 @@ export default function AdminCategories({ onDataChange }) {
                 <div className="admin-list">
                     <div className="admin-list-head">
                         <h3>All categories ({categories.length})</h3>
+                        <input
+                            className="user-search"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by name"
+                        />
                     </div>
 
                     {listError && <p className="form-error" role="alert">! {listError}</p>}
 
                     <ul>
-                        {categories.map((c) => (
+                        {visibleCategories.map((c) => (
                             <li key={c.id}>
                                 {editingId === c.id ? (
                                     <form className="category-edit-form" onSubmit={saveEdit}>
@@ -181,7 +194,9 @@ export default function AdminCategories({ onDataChange }) {
                                 )}
                             </li>
                         ))}
-                        {categories.length === 0 && <li className="hint">No categories yet.</li>}
+                        {visibleCategories.length === 0 && (
+                            <li className="hint">{categories.length === 0 ? 'No categories yet.' : 'No categories found.'}</li>
+                        )}
                     </ul>
                 </div>
             </div>

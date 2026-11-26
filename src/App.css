@@ -921,14 +921,36 @@
 
 .admin-list-head {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
 }
 
+.admin-list {
+  min-width: 0;
+}
+
 .admin-list-head h3 {
   margin: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-list-head .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Search is always the last item and pinned to the top-right corner */
+.admin-list-head .user-search {
+  order: 99;
+  margin-left: auto;
+  flex: 0 1 260px;
+  width: auto;
+  min-width: 90px;
+  box-sizing: border-box;
 }
 
 .confirm-dialog {
