@@ -10,6 +10,14 @@ import { auth, db } from './firebase/firebase'
 
 const DEFAULT_ROLE = 'User'
 
+let registering = false
+
+function accountError(message) {
+  const err = new Error(message)
+  err.isAccountError = true
+  return err
+}
+
 function friendlyError(err) {
   const map = {
     'auth/email-already-in-use': 'An account with that email already exists.',
@@ -25,7 +33,9 @@ function friendlyError(err) {
 
 async function loadProfile(fbUser) {
   const snap = await getDoc(doc(db, 'users', fbUser.uid))
-  const data = snap.exists() ? snap.data() : {}
+  if (!snap.exists()) throw accountError('This account has been deleted.')
+  const data = snap.data()
+  if (data.IsBlocked === true) throw accountError('Your account has been blocked.')
   return {
     id: fbUser.uid,
     email: fbUser.email,
@@ -40,10 +50,12 @@ export function subscribeAuth(callback) {
       callback(null)
       return
     }
+    if (registering) return
     try {
       callback(await loadProfile(fbUser))
     } catch (err) {
       console.error('Profile load error:', err)
+      if (err.isAccountError) await signOut(auth).catch(() => {})
       callback(null)
     }
   })
@@ -57,23 +69,34 @@ export async function register({ username, email, password }) {
   if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('Invalid email.')
   if (password.length < 6) throw new Error('Password must be at least 6 characters.')
 
+  registering = true
+  let fbUser = null
   try {
-    const { user: fbUser } = await createUserWithEmailAndPassword(auth, email, password)
+    ;({ user: fbUser } = await createUserWithEmailAndPassword(auth, email, password))
     await updateProfile(fbUser, { displayName: username })
     await setDoc(doc(db, 'users', fbUser.uid), {
       Name: username,
       Role: DEFAULT_ROLE,
+      IsBlocked: false,
     })
     return { id: fbUser.uid, email: fbUser.email, username, role: DEFAULT_ROLE }
   } catch (err) {
+    if (fbUser) await fbUser.delete().catch(() => {})
     throw friendlyError(err)
+  } finally {
+    registering = false
   }
 }
 
 export async function login({ email, password }) {
   try {
     const { user: fbUser } = await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password)
-    return await loadProfile(fbUser)
+    try {
+      return await loadProfile(fbUser)
+    } catch (err) {
+      if (err.isAccountError) await signOut(auth).catch(() => {})
+      throw err
+    }
   } catch (err) {
     throw friendlyError(err)
   }

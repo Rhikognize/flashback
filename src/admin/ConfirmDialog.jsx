@@ -1,4 +1,4 @@
-export default function ConfirmDialog({ title, message, confirmLabel = 'Delete', onConfirm, onCancel, busy }) {
+export default function ConfirmDialog({ title, message, confirmLabel = 'Delete', busyLabel = 'Deleting...', onConfirm, onCancel, busy }) {
   return (
     <div className="modal-backdrop" onClick={onCancel}>
       <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
@@ -6,7 +6,7 @@ export default function ConfirmDialog({ title, message, confirmLabel = 'Delete',
         <p>{message}</p>
         <div className="admin-form-actions">
           <button type="button" className="btn" onClick={onConfirm} disabled={busy}>
-            {busy ? 'Deleting...' : confirmLabel}
+            {busy ? busyLabel : confirmLabel}
           </button>
           <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>
             Cancel

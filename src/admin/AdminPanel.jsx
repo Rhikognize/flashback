@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import AdminGames from './AdminGames'
 import AdminCategories from './AdminCategories'
+import AdminUsers from './AdminUsers'
 
 const TABS = [
   { id: 'games', label: 'Games' },
@@ -8,7 +9,7 @@ const TABS = [
   { id: 'users', label: 'Users' },
 ]
 
-export default function AdminPanel({ onClose, onDataChange }) {
+export default function AdminPanel({ onClose, onDataChange, currentUserId }) {
   const [tab, setTab] = useState('games')
 
   return (
@@ -37,7 +38,7 @@ export default function AdminPanel({ onClose, onDataChange }) {
         <div className="admin-panel-body">
           {tab === 'games' && <AdminGames onDataChange={onDataChange} />}
           {tab === 'categories' && <AdminCategories onDataChange={onDataChange} />}
-          {tab === 'users' && <p className="hint">Coming soon.</p>}
+          {tab === 'users' && <AdminUsers currentUserId={currentUserId} />}
         </div>
       </div>
     </div>

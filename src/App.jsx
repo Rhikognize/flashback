@@ -597,7 +597,7 @@ function App() {
         />
       )}
 
-      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} onDataChange={refetch} />}
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} onDataChange={refetch} currentUserId={user.id} />}
 
       {authMode && (
         <AuthModal

@@ -598,6 +598,45 @@
   color: #ff6868;
 }
 
+.role-badge.blocked {
+  background: #ff4646;
+  color: #000;
+}
+
+.admin-list li.is-blocked {
+  opacity: 0.6;
+  border-color: var(--red-dark);
+}
+
+.user-search,
+.user-role-select {
+  padding: 6px 10px;
+  border: 3px solid var(--red-dark);
+  background: #0a0a0a;
+  color: #fff;
+  font: inherit;
+}
+
+.user-search {
+  width: min(260px, 100%);
+}
+
+.user-search:focus,
+.user-role-select:focus {
+  outline: none;
+  border-color: var(--red);
+}
+
+.user-role-select:disabled {
+  opacity: 0.5;
+}
+
+@media (max-width: 800px) {
+  .admin-list li {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 800px) {
   .admin-layout {
     grid-template-columns: 1fr;
