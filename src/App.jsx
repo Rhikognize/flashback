@@ -286,22 +286,27 @@ function GameModal({ game, user, onClose, onRatingChange }) {
 
   return (
     <>
-      <div className="modal-backdrop" onClick={onClose}>
+      <div
+        className="modal-backdrop"
+        onWheel={(e) => {
+          if (e.target === e.currentTarget) e.currentTarget.querySelector('.modal-scroll')?.scrollBy(0, e.deltaY)
+        }}
+      >
         <div className="game-modal" onClick={(e) => e.stopPropagation()}>
-          <button type="button" className="btn btn-ghost btn-sm game-close" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
-
           <div className="game-modal-head">
             {game.iconUrl && <img className="game-modal-icon" src={game.iconUrl} alt="" />}
-            <div>
+            <div className="game-modal-title">
               <h2>{game.title}</h2>
               <p className="game-meta">
                 <span className="tag">{game.category}</span> <Stars value={game.rating} />
               </p>
             </div>
+            <button type="button" className="btn btn-ghost btn-sm game-close" onClick={onClose} aria-label="Close">
+              ✕
+            </button>
           </div>
 
+          <div className="modal-scroll game-modal-body">
           <p className="game-description">{game.description}</p>
 
           {game.tags.length > 0 && (
@@ -374,6 +379,7 @@ function GameModal({ game, user, onClose, onRatingChange }) {
               ))}
             </ul>
           )}
+          </div>
         </div>
       </div>
 
