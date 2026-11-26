@@ -406,6 +406,67 @@
   white-space: nowrap;
 }
 
+.user-chip-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  background: #000;
+  cursor: pointer;
+}
+
+.user-chip-button:hover { background: rgba(255, 30, 30, .12); }
+.user-icon { width: 26px; height: 26px; display: grid; place-items: center; overflow: hidden; }
+.user-icon img { width: 100%; height: 100%; object-fit: cover; }
+
+.profile-panel {
+  width: min(760px, 100%);
+  max-height: 90vh;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 4px solid var(--red);
+  background: #000;
+  box-shadow: 10px 10px 0 var(--red-dark);
+}
+
+.profile-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 3px solid var(--red); }
+.profile-head h2 { font-size: 16px; }
+.profile-body { padding: 18px; }
+.profile-card { display: grid; grid-template-columns: 100px 1fr; gap: 12px; align-items: center; padding: 14px; border: 2px solid var(--red-dark); }
+.profile-avatar { grid-row: span 3; width: 88px; height: 88px; display: grid; place-items: center; overflow: hidden; border: 3px solid var(--red); font-size: 38px; }
+.profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.profile-card label { display: flex; flex-direction: column; gap: 5px; color: var(--red); font-size: 16px; }
+.profile-card input:not([type=file]) { min-width: 0; padding: 7px 10px; border: 2px solid var(--red-dark); background: #0a0a0a; color: #fff; }
+.profile-card input:focus { outline: none; border-color: var(--red); }
+.profile-avatar-button { position: relative; padding: 0; background: #000; color: #fff; cursor: pointer; }
+.profile-avatar-button:disabled { cursor: wait; }
+.profile-avatar-hint { position: absolute; inset: auto 0 0; padding: 3px 2px; background: rgba(0, 0, 0, .8); color: #fff; font-size: 11px; }
+.profile-file-input { display: none; }
+.profile-card .btn { justify-self: start; }
+.profile-card .form-error { grid-column: 1 / -1; }
+.profile-tabs { display: flex; gap: 8px; margin: 18px 0 10px; border-bottom: 2px solid var(--red-dark); }
+.profile-tabs button { padding: 9px 12px; border: 0; border-bottom: 3px solid transparent; background: none; color: var(--text); font: inherit; cursor: pointer; }
+.profile-tabs button.active, .profile-tabs button:hover { color: var(--red); border-bottom-color: var(--red); }
+.profile-game-list { display: grid; gap: 8px; }
+.profile-game { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px; border: 2px solid var(--red-dark); }
+.profile-game-open { display: flex; align-items: center; gap: 10px; min-width: 0; border: 0; background: none; color: #fff; font: inherit; text-align: left; cursor: pointer; }
+.profile-game-open img, .profile-game-open > span:first-child { width: 48px; height: 40px; object-fit: cover; display: grid; place-items: center; }
+.profile-game-open > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-game-label { display: flex; flex-direction: column; }
+.profile-game-label strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; }
+.profile-game-label small { color: var(--red-dark); font-size: 14px; }
+.favorite-remove, .favorite-star { border: 0; background: none; color: var(--red); font-size: 24px; cursor: pointer; }
+.favorite-star { flex: 0 0 auto; font-size: 30px; }
+.favorite-star.selected, .favorite-remove { color: #ffd34d; }
+.profile-stats-note { margin-top: 18px; color: var(--red-dark); font-size: 15px; }
+
+@media (max-width: 520px) {
+  .profile-card { grid-template-columns: 1fr; }
+  .profile-avatar { grid-row: auto; }
+}
+
 /* While any modal is open the page behind it does not scroll (no layout jump thanks to the stable gutter) */
 html {
   scrollbar-gutter: stable;

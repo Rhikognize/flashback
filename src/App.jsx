@@ -3,10 +3,12 @@ import AuthModal from './AuthModal'
 import { subscribeAuth, logout } from './auth'
 import { useCatalog } from './useCatalog'
 import { getReviews, submitReview, editReview, deleteReview } from './reviews'
-import { getUserProfile } from './userProfiles'
+import { getUserProfile, toggleFavorite, beginGameSession, checkpointGameSession } from './userProfiles'
+import ProfilePanel from './ProfilePanel'
 import logoImg from './assets/pixil-frame-1.png'
 import './App.css'
 import { auth, db } from "./firebase/firebase";
+import { doc, onSnapshot } from 'firebase/firestore'
 import AdminPanel from './admin/AdminPanel'
 import ConfirmDialog from './admin/ConfirmDialog'
 import RufflePlayer from './RufflePlayer'
@@ -243,7 +245,7 @@ function ReviewItem({ review, profile, isOwn, busy, onSave, onRequestDelete }) {
   )
 }
 
-function GameModal({ game, user, onClose, onRatingChange, onLaunch }) {
+function GameModal({ game, user, onClose, onRatingChange, onLaunch, onToggleFavorite, onGameStart, onGameStop }) {
   const [reviews, setReviews] = useState([])
   const [profiles, setProfiles] = useState({})
   const [loadingReviews, setLoadingReviews] = useState(true)
@@ -252,23 +254,43 @@ function GameModal({ game, user, onClose, onRatingChange, onLaunch }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [reviewToDelete, setReviewToDelete] = useState(null)
+  const isFavorite = Boolean(user?.favorites?.includes(game.id))
+
+  useEffect(() => {
+    if (!user) return
+    setProfiles((existing) => ({ ...existing, [user.id]: { name: user.username, avatarUrl: user.avatarUrl || null } }))
+  }, [user?.id, user?.username, user?.avatarUrl])
 
   useEffect(() => {
     let cancelled = false
     setLoadingReviews(true)
+    const profileUnsubscribers = []
     getReviews(game.id)
       .then(async (r) => {
         if (cancelled) return
         setReviews(r)
         const uniqueIds = [...new Set(r.map((rv) => rv.IdUser))]
-        const entries = await Promise.all(
-          uniqueIds.map(async (uid) => [uid, await getUserProfile(uid)]),
-        )
-        if (!cancelled) setProfiles(Object.fromEntries(entries))
+        uniqueIds.forEach((uid) => {
+          const unsubscribe = onSnapshot(doc(db, 'users', uid), (snap) => {
+            if (!snap.exists()) return
+            const data = snap.data()
+            if (data.Image) {
+              setProfiles((current) => ({ ...current, [uid]: { name: data.Name || 'Unknown user', avatarUrl: data.Image } }))
+            } else {
+              getUserProfile(uid).then((profile) => {
+                if (!cancelled) setProfiles((current) => ({ ...current, [uid]: { ...profile, name: data.Name || profile.name } }))
+              })
+            }
+          }, async () => {
+            const profile = await getUserProfile(uid)
+            if (!cancelled) setProfiles((current) => ({ ...current, [uid]: profile }))
+          })
+          profileUnsubscribers.push(unsubscribe)
+        })
       })
       .catch((err) => console.error('Reviews load error:', err))
       .finally(() => !cancelled && setLoadingReviews(false))
-    return () => { cancelled = true }
+    return () => { cancelled = true; profileUnsubscribers.forEach((unsubscribe) => unsubscribe()) }
   }, [game.id])
 
   const sortedReviews = useMemo(() => {
@@ -357,6 +379,7 @@ function GameModal({ game, user, onClose, onRatingChange, onLaunch }) {
                 <span className="tag">{game.category}</span> <Stars value={game.rating} />
               </p>
             </div>
+            {user && <button type="button" className={`favorite-star ${isFavorite ? 'selected' : ''}`} onClick={() => onToggleFavorite?.(game.id)} aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'} title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}>{isFavorite ? '★' : '☆'}</button>}
             <button type="button" className="btn btn-ghost btn-sm game-close" onClick={onClose} aria-label="Close">
               ✕
             </button>
@@ -381,7 +404,13 @@ function GameModal({ game, user, onClose, onRatingChange, onLaunch }) {
             </div>
           )}
 
-          <RufflePlayer key={game.id} url={game.fileUrl} onLaunch={() => onLaunch?.(game.id)} />
+          <RufflePlayer
+            key={game.id}
+            url={game.fileUrl}
+            onStart={() => onGameStart?.(game.id)}
+            onStop={() => onGameStop?.(game.id)}
+            onLaunch={() => onLaunch?.(game.id)}
+          />
 
           <h3>Leave a review</h3>
           {!user ? (
@@ -461,6 +490,9 @@ function App() {
   const [authMode, setAuthMode] = useState(null)
   const [activeGame, setActiveGame] = useState(null)
   const [showAdmin, setShowAdmin] = useState(false)
+  const [showProfile, setShowProfile] = useState(false)
+  const timerRef = useRef(null)
+  const stopTimerFnRef = useRef(null)
 
   useEffect(() => {
     const unsubscribe = subscribeAuth((u) => {
@@ -492,15 +524,82 @@ function App() {
 
   const handlePlay = (game) => {
     setActiveGame(game)
-    // counted once per game per session; update the local list so the sort by views stays current
-    if (registerView(game.id)) {
-      setGames((gs) => gs.map((g) => (g.id === game.id ? { ...g, views: g.views + 1 } : g)))
-    }
+    setGames((gs) => gs.map((g) => (g.id === game.id ? { ...g, views: g.views + 1 } : g)))
+    registerView(game.id)
+      .catch((err) => {
+        console.error('View count error:', err)
+        setGames((gs) => gs.map((g) => (g.id === game.id ? { ...g, views: Math.max(0, g.views - 1) } : g)))
+      })
   }
 
   const handleLaunch = (gameId) => {
-    registerLaunch(gameId)
     setGames((gs) => gs.map((g) => (g.id === gameId ? { ...g, launches: g.launches + 1 } : g)))
+    registerLaunch(gameId)
+      .catch((err) => {
+        console.error('Launch count error:', err)
+        setGames((gs) => gs.map((g) => (g.id === gameId ? { ...g, launches: Math.max(0, g.launches - 1) } : g)))
+      })
+  }
+
+  const applyLaunchHistory = (uid, launchHistory) => {
+    if (!launchHistory) return
+    setUser((current) => current?.id === uid ? { ...current, launchHistory } : current)
+  }
+
+  const startGameTimer = (gameId) => {
+    if (!user?.id) return
+    if (timerRef.current?.gameId === gameId) return
+    if (timerRef.current) stopTimerFnRef.current?.(timerRef.current.gameId)
+    const timer = { uid: user.id, gameId, sessionId: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`, chain: Promise.resolve(), interval: null, started: false }
+    timerRef.current = timer
+    timer.chain = beginGameSession(timer.uid, gameId, timer.sessionId)
+      .then(({ history }) => { timer.started = true; applyLaunchHistory(timer.uid, history) })
+      .catch((err) => console.error('Game session start error:', err))
+    timer.interval = window.setInterval(() => {
+      if (timerRef.current !== timer) return
+      timer.chain = timer.chain.then(() => timer.started
+        ? checkpointGameSession(timer.uid, gameId, timer.sessionId)
+        : null).then((history) => applyLaunchHistory(timer.uid, history))
+        .catch((err) => console.error('Game time checkpoint error:', err))
+    }, 15_000)
+  }
+
+  const stopGameTimer = (gameId) => {
+    const timer = timerRef.current
+    if (!timer || (gameId && timer.gameId !== gameId)) return timer?.chain
+    timerRef.current = null
+    window.clearInterval(timer.interval)
+    timer.chain = timer.chain.then(() => timer.started
+      ? checkpointGameSession(timer.uid, timer.gameId, timer.sessionId, true)
+      : null).then((history) => applyLaunchHistory(timer.uid, history))
+      .catch((err) => console.error('Game session finish error:', err))
+    return timer.chain
+  }
+  useEffect(() => {
+    stopTimerFnRef.current = stopGameTimer
+  })
+
+  useEffect(() => {
+    const finishOnPageExit = () => stopTimerFnRef.current?.()
+    window.addEventListener('pagehide', finishOnPageExit)
+    window.addEventListener('beforeunload', finishOnPageExit)
+    return () => {
+      window.removeEventListener('pagehide', finishOnPageExit)
+      window.removeEventListener('beforeunload', finishOnPageExit)
+      stopTimerFnRef.current?.()
+    }
+  }, [])
+
+  const handleToggleFavorite = async (gameId) => {
+    if (!user) return
+    const favorite = !(user.favorites || []).includes(gameId)
+    const favorites = favorite ? [...(user.favorites || []), gameId] : user.favorites.filter((id) => id !== gameId)
+    setUser((current) => current?.id === user.id ? { ...current, favorites } : current)
+    try { await toggleFavorite(user.id, gameId, favorite) }
+    catch (err) {
+      setUser((current) => current?.id === user.id ? { ...current, favorites: user.favorites || [] } : current)
+      console.error('Favorite update error:', err)
+    }
   }
 
   const backfillBusy = useRef(new Set())
@@ -589,11 +688,11 @@ function App() {
               <span className="user-chip">Loading...</span>
             ) : user ? (
               <>
-                <span className="user-chip">
-                  <span className="user-icon">👤</span>
+                <button type="button" className="user-chip user-chip-button" onClick={() => setShowProfile(true)} aria-label="Open your profile">
+                  <span className="user-icon">{user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : '👤'}</span>
                   <span className="username">{user.username}</span>
                   <span className={`role-badge ${user.role?.toLowerCase()}`}>{user.role}</span>
-                </span>
+                </button>
                 {user.role === 'Admin' && (
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowAdmin(true)}>
                     Admin
@@ -696,8 +795,13 @@ function App() {
           onClose={() => setActiveGame(null)}
           onRatingChange={handleRatingChange}
           onLaunch={handleLaunch}
+          onToggleFavorite={handleToggleFavorite}
+          onGameStart={startGameTimer}
+          onGameStop={stopGameTimer}
         />
       )}
+
+      {showProfile && user && <ProfilePanel user={user} games={games} onClose={() => setShowProfile(false)} onUpdateUser={setUser} onPlay={(game) => handlePlay(game)} />}
 
       {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} onDataChange={refetch} currentUserId={user.id} />}
 

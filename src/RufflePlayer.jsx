@@ -43,9 +43,11 @@ function loadRuffle() {
   return ruffleLoading
 }
 
-export default function RufflePlayer({ url, onLaunch }) {
+export default function RufflePlayer({ url, onLaunch, onStart, onStop }) {
   const holderRef = useRef(null)
   const playerRef = useRef(null)
+  const onStopRef = useRef(onStop)
+  const startLockRef = useRef(false)
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState('')
   const [ratio, setRatio] = useState(16 / 10)
@@ -55,10 +57,19 @@ export default function RufflePlayer({ url, onLaunch }) {
     playerRef.current = null
   }
 
-  useEffect(() => destroy, [])
+  useEffect(() => {
+    onStopRef.current = onStop
+  }, [onStop])
+
+  useEffect(() => () => {
+    destroy()
+    onStopRef.current?.()
+  }, [])
 
   const start = async () => {
-    if (status === 'loading' || status === 'playing') return
+    if (startLockRef.current || status === 'loading' || status === 'playing') return
+    startLockRef.current = true
+    onStart?.()
     setError('')
     setStatus('loading')
     try {
@@ -85,6 +96,8 @@ export default function RufflePlayer({ url, onLaunch }) {
     } catch (err) {
       console.error('Ruffle error:', err)
       destroy()
+      onStopRef.current?.()
+      startLockRef.current = false
       setError(err?.message || 'Could not start the game.')
       setStatus('error')
     }

@@ -7,6 +7,7 @@ import {
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from './firebase/firebase'
+import { getAvatarUrl, recoverGameSessions } from './userProfiles'
 
 const DEFAULT_ROLE = 'User'
 
@@ -36,11 +37,19 @@ async function loadProfile(fbUser) {
   if (!snap.exists()) throw accountError('This account has been deleted.')
   const data = snap.data()
   if (data.IsBlocked === true) throw accountError('Your account has been blocked.')
+  const avatarUrl = await getAvatarUrl(fbUser.uid, data.Image || fbUser.photoURL || null)
+  const launchHistory = await recoverGameSessions(fbUser.uid).catch((err) => {
+    console.error('Previous game session recovery error:', err)
+    return Array.isArray(data.LaunchHistory) ? data.LaunchHistory : []
+  })
   return {
     id: fbUser.uid,
     email: fbUser.email,
     username: data.Name || fbUser.displayName || fbUser.email,
+    avatarUrl,
     role: data.Role || DEFAULT_ROLE,
+    favorites: Array.isArray(data.Favorites) ? data.Favorites : [],
+    launchHistory,
   }
 }
 
@@ -79,7 +88,7 @@ export async function register({ username, email, password }) {
       Role: DEFAULT_ROLE,
       IsBlocked: false,
     })
-    return { id: fbUser.uid, email: fbUser.email, username, role: DEFAULT_ROLE }
+    return { id: fbUser.uid, email: fbUser.email, username, avatarUrl: null, favorites: [], launchHistory: [], role: DEFAULT_ROLE }
   } catch (err) {
     if (fbUser) await fbUser.delete().catch(() => {})
     throw friendlyError(err)
