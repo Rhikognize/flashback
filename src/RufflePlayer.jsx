@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 
-// Ruffle is loaded on demand (only when someone presses Play), so it does not slow down the catalog.
 const RUFFLE_SRC = 'https://unpkg.com/@ruffle-rs/ruffle'
 let ruffleLoading = null
 
-// forceScale/forceAlign: many SWFs set Stage.scaleMode = "noScale" themselves, which keeps them at their
-// original size (the cause of the "game doesn't fit / white area in fullscreen" problem). Ruffle ignores that
-// when these two are on, and scales the game to fit the panel (keeping the aspect ratio, black bars if needed).
 const PLAYER_CONFIG = {
-  autoplay: 'on',          // the click on the panel counts as the user gesture
+  autoplay: 'on',
   unmuteOverlay: 'hidden',
-  splashScreen: false,     // we show our own loading state
+  splashScreen: false,
   letterbox: 'on',
   scale: 'showAll',
   forceScale: true,
@@ -40,27 +36,25 @@ function loadRuffle() {
     script.onerror = () => reject(new Error('Could not download Ruffle.'))
     document.head.appendChild(script)
   }).catch((err) => {
-    ruffleLoading = null // allow a retry
+    ruffleLoading = null
     throw err
   })
 
   return ruffleLoading
 }
 
-// status: 'idle' (triangle + "Play") -> 'loading' -> 'playing' | 'error'
 export default function RufflePlayer({ url }) {
   const holderRef = useRef(null)
   const playerRef = useRef(null)
   const [status, setStatus] = useState('idle')
   const [error, setError] = useState('')
-  const [ratio, setRatio] = useState(16 / 10) // panel adapts to the game's own width/height
+  const [ratio, setRatio] = useState(16 / 10)
 
   const destroy = () => {
     playerRef.current?.remove()
     playerRef.current = null
   }
 
-  // Closing the modal / switching game removes the running player (stops the sound too).
   useEffect(() => destroy, [])
 
   const start = async () => {
