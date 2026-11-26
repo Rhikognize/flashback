@@ -999,3 +999,103 @@
   font-size: 13px;
   text-transform: uppercase;
 }
+
+.review-item {
+  position: relative;
+  padding: 30px 40px 12px 12px;
+}
+
+.review-top {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--red-dark);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  pointer-events: none;
+}
+
+.review-menu {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+}
+
+.review-menu-btn {
+  padding: 2px 8px;
+  border: none;
+  background: transparent;
+  color: var(--red);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.review-menu-btn:hover {
+  color: #fff;
+}
+
+.review-menu-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  min-width: 110px;
+  border: 2px solid var(--red);
+  background: #000;
+  box-shadow: 4px 4px 0 var(--red-dark);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+}
+
+.review-menu-dropdown button {
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  text-transform: uppercase;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.review-menu-dropdown button:hover {
+  background: var(--red);
+  color: #000;
+}
+
+.review-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.review-edit-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-transform: uppercase;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.review-edit-form select,
+.review-edit-form textarea {
+  padding: 8px 12px;
+  border: 3px solid var(--red-dark);
+  background: #0a0a0a;
+  color: #fff;
+  caret-color: var(--red);
+  resize: vertical;
+}
+
+.review-edit-form select:focus,
+.review-edit-form textarea:focus {
+  outline: none;
+  border-color: var(--red);
+}
