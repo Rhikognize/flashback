@@ -17,6 +17,7 @@ export default function AdminGames({ onDataChange }) {
     const [iconFile, setIconFile] = useState(null)
     const [thumbFiles, setThumbFiles] = useState([])
     const [busy, setBusy] = useState(false)
+    const [progress, setProgress] = useState(0)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
     const [gameToDelete, setGameToDelete] = useState(null)
@@ -73,6 +74,7 @@ export default function AdminGames({ onDataChange }) {
         }
 
         setBusy(true)
+        setProgress(0)
         try {
             const data = {
                 title: form.title.trim(),
@@ -81,9 +83,10 @@ export default function AdminGames({ onDataChange }) {
                 tags: form.tagsText.split(',').map((t) => t.trim()).filter(Boolean),
             }
             const files = { swf: swfFile, icon: iconFile, thumbnails: thumbFiles }
+            const onProgress = (fraction) => setProgress(Math.round(fraction * 100))
 
-            if (editingId) await updateGame(editingId, { data, files })
-            else await createGame({ data, files })
+            if (editingId) await updateGame(editingId, { data, files }, onProgress)
+            else await createGame({ data, files }, onProgress)
 
             await reload()
             await onDataChange?.()
@@ -94,6 +97,7 @@ export default function AdminGames({ onDataChange }) {
             setError(err.message || 'Something went wrong.')
         } finally {
             setBusy(false)
+            setProgress(0)
         }
     }
 
@@ -118,6 +122,8 @@ export default function AdminGames({ onDataChange }) {
     }
 
     if (loading) return <p className="hint">Loading...</p>
+
+    const uploading = Boolean(swfFile || iconFile || thumbFiles.length)
 
     return (
         <div className="admin">
@@ -186,9 +192,21 @@ export default function AdminGames({ onDataChange }) {
                         {error && <p className="form-error" role="alert">! {error}</p>}
                         {success && <p className="form-ok">{success}</p>}
 
+                        {busy && uploading && (
+                            <div className="upload-progress">
+                                <div className="upload-progress-bar" style={{ width: `${progress}%` }} />
+                            </div>
+                        )}
+
                         <div className="admin-form-actions">
                             <button type="submit" className="btn" disabled={busy}>
-                                {busy ? 'Saving...' : editingId ? 'Save changes' : 'Add game'}
+                                {busy
+                                    ? uploading && progress < 100
+                                        ? `Uploading... ${progress}%`
+                                        : 'Saving...'
+                                    : editingId
+                                        ? 'Save changes'
+                                        : 'Add game'}
                             </button>
                             {editingId && (
                                 <button type="button" className="btn btn-ghost" onClick={resetForm} disabled={busy}>

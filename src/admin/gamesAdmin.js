@@ -14,21 +14,43 @@ export async function listGamesAdmin() {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }))
 }
 
-async function uploadGameFiles(id, files) {
-  if (files.swf) await r2Upload(`games/${id}/file.swf`, files.swf)
-  if (files.icon) await r2Upload(`games/${id}/icon.png`, files.icon)
+async function uploadGameFiles(id, files, onProgress) {
+  const items = []
+  if (files.swf) items.push({ key: `games/${id}/file.swf`, file: files.swf })
+  if (files.icon) items.push({ key: `games/${id}/icon.png`, file: files.icon })
+
   if (files.thumbnails?.length) {
     await r2DeletePrefix(`games/${id}/Thumbnails/`)
-    await Promise.all(
-      files.thumbnails.map((f, i) => r2Upload(`games/${id}/Thumbnails/${i + 1}.png`, f)),
-    )
+    files.thumbnails.forEach((f, i) => {
+      items.push({ key: `games/${id}/Thumbnails/${i + 1}.png`, file: f })
+    })
   }
+
+  if (items.length === 0) return
+
+  const totalBytes = items.reduce((sum, it) => sum + it.file.size, 0)
+  const loadedBytes = new Array(items.length).fill(0)
+
+  const report = () => {
+    if (!onProgress) return
+    const loaded = loadedBytes.reduce((a, b) => a + b, 0)
+    onProgress(totalBytes ? loaded / totalBytes : 1)
+  }
+
+  await Promise.all(
+    items.map((item, idx) =>
+      r2Upload(item.key, item.file, (fraction) => {
+        loadedBytes[idx] = fraction * item.file.size
+        report()
+      }),
+    ),
+  )
 }
 
-export async function createGame({ data, files }) {
+export async function createGame({ data, files }, onProgress) {
   if (!files.swf) throw new Error('Add a .swf file for the game.')
   const id = crypto.randomUUID()
-  await uploadGameFiles(id, files)
+  await uploadGameFiles(id, files, onProgress)
   await setDoc(doc(db, 'games', id), {
     Title: data.title,
     Description: data.description,
@@ -39,8 +61,8 @@ export async function createGame({ data, files }) {
   return id
 }
 
-export async function updateGame(id, { data, files }) {
-  await uploadGameFiles(id, files)
+export async function updateGame(id, { data, files }, onProgress) {
+  await uploadGameFiles(id, files, onProgress)
   await updateDoc(doc(db, 'games', id), {
     Title: data.title,
     Description: data.description,

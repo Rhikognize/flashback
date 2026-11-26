@@ -9,17 +9,33 @@ export async function r2List(prefix) {
   return res.json()
 }
 
-export async function r2Upload(key, file) {
-  const res = await fetch(`${BASE}/files/${key.replace(/^\/+/, '')}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type || 'application/octet-stream',
-      'X-Admin-Key': ADMIN_KEY,
-    },
-    body: file,
+export function r2Upload(key, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PUT', `${BASE}/files/${key.replace(/^\/+/, '')}`)
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream')
+    xhr.setRequestHeader('X-Admin-Key', ADMIN_KEY)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total)
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText))
+        } catch {
+          resolve(null)
+        }
+      } else {
+        reject(new Error(`Upload failed (${xhr.status})`))
+      }
+    }
+
+    xhr.onerror = () => reject(new Error('Upload failed (network error)'))
+
+    xhr.send(file)
   })
-  if (!res.ok) throw new Error(`Upload failed (${res.status})`)
-  return res.json()
 }
 
 export async function r2DeletePrefix(prefix) {
