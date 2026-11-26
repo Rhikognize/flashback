@@ -21,7 +21,7 @@
 
 .header-inner {
   display: grid;
-  grid-template-columns: 1fr minmax(0, 440px) 1fr;
+  grid-template-columns: 1fr auto;
   align-items: center;
   gap: 16px;
   padding: 12px 0;
@@ -50,10 +50,9 @@
 }
 
 .search {
+  flex: 1 1 200px;
   width: 100%;
   min-width: 0;
-  max-width: 440px;
-  justify-self: center;
   margin: 0;
   padding: 8px 14px;
   border: 3px solid var(--red);
@@ -132,19 +131,99 @@
 }
 
 /* ---------- Categories ---------- */
+#jocuri {
+  scroll-margin-top: calc(var(--header-h, 72px) + 8px);
+}
+
+/* Search + category filter + sort: pinned under the header while the game list scrolls */
 .section-head {
+  position: sticky;
+  top: calc(var(--header-h, 72px) + 4px);
+  z-index: 15;
   display: flex;
-  align-items: end;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 16px;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 24px;
-  padding-bottom: 14px;
-  border-bottom: 4px double var(--red-dark);
+  padding: 10px 12px;
+  background: #000;
+  border: 3px solid var(--red-dark);
+  box-shadow: 4px 4px 0 var(--red-dark);
 }
 
 .section-head h2 {
+  flex: 0 0 auto;
+  margin: 0;
   font-size: 18px;
+  white-space: nowrap;
+}
+
+.section-head .toolbar-select {
+  flex: 0 0 210px;
+}
+
+.section-head .category-select-trigger {
+  border-color: var(--red);
+  padding: 8px 12px;
+}
+
+.section-head .category-select-trigger > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section-head .category-select-list {
+  right: auto;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(320px, 80vw);
+}
+
+.section-head .category-select-list.align-right {
+  left: auto;
+  right: 0;
+}
+
+.card-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-top: auto; /* pins the row to the bottom of the card */
+  padding-top: 10px;
+  font-size: 16px;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+@media (max-width: 800px) {
+  .section-head {
+    flex-wrap: wrap;
+  }
+
+  .section-head h2 {
+    display: none;
+  }
+
+  .section-head .search {
+    flex-basis: 100%;
+  }
+
+  .section-head .toolbar-select {
+    flex: 1 1 140px;
+  }
 }
 
 .section-head h2::before {
@@ -297,12 +376,6 @@
   .header-inner {
     display: flex;
     flex-wrap: wrap;
-  }
-
-  .search {
-    max-width: none;
-    order: 3;
-    flex-basis: 100%;
   }
 
   .header-actions {

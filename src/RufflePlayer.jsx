@@ -43,7 +43,7 @@ function loadRuffle() {
   return ruffleLoading
 }
 
-export default function RufflePlayer({ url }) {
+export default function RufflePlayer({ url, onLaunch }) {
   const holderRef = useRef(null)
   const playerRef = useRef(null)
   const [status, setStatus] = useState('idle')
@@ -81,6 +81,7 @@ export default function RufflePlayer({ url }) {
       await player.ruffle().load({ url, ...PLAYER_CONFIG })
       applyRatio()
       setStatus('playing')
+      onLaunch?.()
     } catch (err) {
       console.error('Ruffle error:', err)
       destroy()
