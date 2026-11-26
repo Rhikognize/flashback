@@ -13,8 +13,14 @@ export default function AdminPanel({ onClose, onDataChange, currentUserId }) {
   const [tab, setTab] = useState('games')
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
+    <div
+      className="modal-backdrop"
+      onWheel={(e) => {
+        if (e.target === e.currentTarget) e.currentTarget.querySelector('.modal-scroll')?.scrollBy(0, e.deltaY)
+      }}
+    >
       <div className="admin-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="admin-panel-top">
         <div className="modal-head">
           <h2>Admin panel</h2>
           <button type="button" className="close" onClick={onClose} aria-label="Close">✕</button>
@@ -34,8 +40,9 @@ export default function AdminPanel({ onClose, onDataChange, currentUserId }) {
             </button>
           ))}
         </div>
+        </div>
 
-        <div className="admin-panel-body">
+        <div className="modal-scroll admin-panel-body">
           {tab === 'games' && <AdminGames onDataChange={onDataChange} />}
           {tab === 'categories' && <AdminCategories onDataChange={onDataChange} />}
           {tab === 'users' && <AdminUsers currentUserId={currentUserId} />}

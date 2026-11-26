@@ -333,7 +333,17 @@
   white-space: nowrap;
 }
 
+/* While any modal is open the page behind it does not scroll (no layout jump thanks to the stable gutter) */
+html {
+  scrollbar-gutter: stable;
+}
+
+body:has(.modal-backdrop) {
+  overflow: hidden;
+}
+
 .modal-backdrop {
+  overscroll-behavior: contain;
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -650,31 +660,56 @@
 }
 
 /* ---------- Game modal ---------- */
+/* Shared: the card does not scroll itself, only .modal-scroll inside it does */
+.modal-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .game-modal {
   width: min(720px, 100%);
   max-height: 90vh;
-  overflow-y: auto;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   position: relative;
   border: 4px solid var(--red);
   background: #000;
   box-shadow: 10px 10px 0 var(--red-dark);
-  padding: 20px 20px 24px;
+}
+
+.game-modal-body {
+  padding: 16px 20px 24px;
 }
 
 .game-close {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .game-modal-head {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 12px;
+  padding: 14px 16px 14px 20px;
+  background: #000;
+  border-bottom: 3px solid var(--red);
+}
+
+.game-modal-title {
+  min-width: 0;
+}
+
+.game-modal-title h2 {
+  overflow-wrap: anywhere;
 }
 
 .game-modal-icon {
+  flex-shrink: 0;
   width: 64px;
   height: 64px;
   object-fit: cover;
@@ -986,14 +1021,23 @@
 .admin-panel {
   width: min(960px, 100%);
   max-height: 90vh;
-  overflow-y: auto;
+  max-height: 90dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border: 4px solid var(--red);
   background: #000;
   box-shadow: 10px 10px 0 var(--red-dark);
 }
 
+.admin-panel-top {
+  flex: 0 0 auto;
+  background: #000;
+  border-bottom: 3px solid var(--red);
+}
+
 .admin-panel-tabs {
-  padding: 14px 16px 0;
+  padding: 14px 16px 14px;
 }
 
 .admin-panel-body {
