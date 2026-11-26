@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import DropZone from './DropZone'
 import { useFilePreviews } from './useFilePreviews'
 import { listCategoriesAdmin, listGamesAdmin, createGame, updateGame, deleteGame } from './gamesAdmin'
@@ -21,6 +21,7 @@ export default function AdminGames({ onDataChange }) {
     const [error, setError] = useState('')
     const [success, setSuccess] = useState('')
     const [gameToDelete, setGameToDelete] = useState(null)
+    const [search, setSearch] = useState('')
 
     const iconPreviews = useFilePreviews(iconFile)
     const thumbPreviews = useFilePreviews(thumbFiles)
@@ -34,6 +35,17 @@ export default function AdminGames({ onDataChange }) {
     }
 
     useEffect(() => { reload() }, [])
+
+    const visibleGames = useMemo(() => {
+        const q = search.trim().toLowerCase()
+        if (!q) return games
+        const categoryName = (id) => categories.find((c) => c.id === id)?.name ?? ''
+        return games.filter((g) =>
+            (g.Title || '').toLowerCase().includes(q) ||
+            categoryName(g.IdCategory).toLowerCase().includes(q) ||
+            (Array.isArray(g.Tags) ? g.Tags : []).some((t) => String(t).toLowerCase().includes(q))
+        )
+    }, [games, categories, search])
 
     const resetForm = () => {
         setEditingId(null)
@@ -220,12 +232,18 @@ export default function AdminGames({ onDataChange }) {
                 <div className="admin-list">
                     <div className="admin-list-head">
                         <h3>All games ({games.length})</h3>
+                        <input
+                            className="user-search"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder="Search by title, category or tag"
+                        />
                         <button type="button" className="btn btn-ghost btn-sm" onClick={resetForm} disabled={busy}>
                             + Add game
                         </button>
                     </div>
                     <ul>
-                        {games.map((g) => (
+                        {visibleGames.map((g) => (
                             <li key={g.id}>
                                 <div className="admin-item-info">
                                     <strong>{g.Title}</strong>
@@ -241,7 +259,9 @@ export default function AdminGames({ onDataChange }) {
                                 </button>
                             </li>
                         ))}
-                        {games.length === 0 && <li className="hint">No games yet.</li>}
+                        {visibleGames.length === 0 && (
+                            <li className="hint">{games.length === 0 ? 'No games yet.' : 'No games found.'}</li>
+                        )}
                     </ul>
                 </div>
             </div>
